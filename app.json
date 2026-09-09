@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "CricCorner",
+    "slug": "criccorner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": { "backgroundColor": "#0B5D3B" },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.criccorner"
+    },
+    "android": {
+      "package": "com.yourcompany.criccorner"
+    },
+    "plugins": []
+  }
+}

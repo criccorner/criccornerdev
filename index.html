@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join a team on CricCorner</title>
+<style>
+  :root { --green:#1B5E20; --bg:#F3F7F3; --text:#16211a; --muted:#5b6b60; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#101712; --text:#e8f0ea; --muted:#9db0a2; --card:#18221b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); display:flex; min-height:100vh; align-items:center; justify-content:center; padding:16px; }
+  main { width:100%; max-width:420px; background:var(--card); border-radius:16px; padding:28px 22px; box-shadow:0 6px 24px rgba(0,0,0,.12); text-align:center; }
+  h1 { margin:6px 0 4px; font-size:22px; }
+  p { color:var(--muted); line-height:1.5; margin:8px 0; }
+  .logo { font-size:44px; }
+  a.btn, button.btn { display:block; width:100%; padding:14px; margin-top:14px; border-radius:12px; border:0; font-size:16px; font-weight:700; text-decoration:none; cursor:pointer; background:var(--green); color:#fff; }
+  a.alt { background:transparent; color:var(--green); border:2px solid var(--green); }
+  small { display:block; margin-top:18px; color:var(--muted); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">🏏</div>
+  <h1>You're invited to join a team</h1>
+  <p id="msg">Tap the button to open CricCorner and join.</p>
+  <a id="open" class="btn" href="#">Open in CricCorner</a>
+  <a id="get" class="btn alt" href="#" hidden>Get the CricCorner app</a>
+  <small id="help">Nothing happened? Make sure CricCorner is installed on this phone, then tap the button again.</small>
+  <small id="bad" hidden>This link is incomplete. Ask your captain to send it again.</small>
+</main>
+<script>
+  // Set this to where people can download the app (optional).
+  var APP_DOWNLOAD_URL = "";
+
+  var q = new URLSearchParams(location.search);
+  var t = q.get("t"), c = q.get("c");
+  var open = document.getElementById("open");
+  if (!t || !c) {
+    open.hidden = true;
+    document.getElementById("msg").hidden = true;
+    document.getElementById("help").hidden = true;
+    document.getElementById("bad").hidden = false;
+  } else {
+    var target = "criccorner://join/" + encodeURIComponent(t) + "/" + encodeURIComponent(c);
+    open.href = target;
+    // Try to open the app straight away.
+    setTimeout(function () { location.href = target; }, 300);
+  }
+  if (APP_DOWNLOAD_URL) {
+    var get = document.getElementById("get");
+    get.href = APP_DOWNLOAD_URL;
+    get.hidden = false;
+  }
+</script>
+</body>
+</html>

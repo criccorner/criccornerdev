@@ -26,7 +26,6 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="criccorner"/>
-        <data android:scheme="com.yourcompany.criccorner"/>
       </intent-filter>
     </activity>
   </application>

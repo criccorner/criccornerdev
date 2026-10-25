@@ -2,11 +2,17 @@
   "expo": {
     "name": "CricCorner",
     "slug": "criccorner",
-    "version": "1.0.0",
+    "version": "2.0.5",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": { "backgroundColor": "#0B5D3B" },
-    "assetBundlePatterns": ["**/*"],
+    "scheme": "criccorner",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#0B5D3B"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.criccorner"
@@ -14,6 +20,21 @@
     "android": {
       "package": "com.yourcompany.criccorner"
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CricCorner needs access to your photos so you can set a profile picture.",
+          "cameraPermission": "CricCorner needs camera access so you can take a profile picture."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dcb8cc9e-23c2-4c09-85fe-cf70eadb448c"
+      }
+    },
+    "owner": "cric-corner"
   }
 }

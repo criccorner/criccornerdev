@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
-import { useAppState, useAppDispatch } from "../context/AppContext";
+import { useAccess, useAppDispatch } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import FormField from "../components/FormField";
 import Button from "../components/Button";
 
 export default function CreateTeamScreen({ navigation }) {
-  const { players } = useAppState();
+  const players = useAccess().mine.players;
   const dispatch = useAppDispatch();
   const [name, setName] = useState("");
   const [ownerId, setOwnerId] = useState(null);
@@ -31,7 +31,11 @@ export default function CreateTeamScreen({ navigation }) {
       ) : (
         <View style={styles.ownerList}>
           {players.map((p) => (
-            <Pressable key={p.id} onPress={() => setOwnerId(ownerId === p.id ? null : p.id)} style={[styles.ownerChip, ownerId === p.id && styles.ownerChipActive]}>
+            <Pressable
+              key={p.id}
+              onPress={() => setOwnerId(ownerId === p.id ? null : p.id)}
+              style={[styles.ownerChip, ownerId === p.id && styles.ownerChipActive]}
+            >
               <Text style={[styles.ownerChipText, ownerId === p.id && { color: "#fff" }]}>{p.name}</Text>
             </Pressable>
           ))}
@@ -47,7 +51,14 @@ export default function CreateTeamScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { padding: spacing.md, backgroundColor: colors.background, flexGrow: 1 },
   ownerList: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  ownerChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  ownerChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   ownerChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   ownerChipText: { color: colors.text, fontWeight: "600" },
 });

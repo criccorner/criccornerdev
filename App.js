@@ -1,17 +1,29 @@
 import "react-native-gesture-handler";
-import React from "react";
-import { StatusBar } from "expo-status-bar";
-import { NavigationContainer } from "@react-navigation/native";
-import { AppProvider } from "./src/context/AppContext";
-import RootNavigator from "./src/navigation/RootNavigator";
+import React, { useEffect, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
+import { loadSavedTheme } from "./src/theme/themeStore";
 
+// The saved theme must be applied BEFORE any screen is loaded (screens read the
+// theme when they load), so the real app is required only after that.
 export default function App() {
-  return (
-    <AppProvider>
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <RootNavigator />
-      </NavigationContainer>
-    </AppProvider>
-  );
+  const [Root, setRoot] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadSavedTheme().finally(() => {
+      if (alive) setRoot(() => require("./src/AppRoot").default);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!Root) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0B5D3B", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
+  return <Root />;
 }

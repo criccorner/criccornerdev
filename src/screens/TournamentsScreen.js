@@ -1,12 +1,12 @@
 import React from "react";
 import { View, Text, FlatList, StyleSheet, Pressable } from "react-native";
-import { useAppState } from "../context/AppContext";
+import { useAccess } from "../context/AppContext";
 import { colors, spacing, typography } from "../utils/theme";
 import Button from "../components/Button";
 import Card from "../components/Card";
 
 export default function TournamentsScreen({ navigation }) {
-  const { tournaments } = useAppState();
+  const tournaments = useAccess().mine.tournaments;
 
   return (
     <View style={styles.container}>

@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
-import { useAppState } from "../context/AppContext";
-import { colors, spacing, typography } from "../utils/theme";
+import CopyrightFooter from "../components/CopyrightFooter";
+import { useAppState, useAccess } from "../context/AppContext";
+import { colors, spacing, typography, radius } from "../utils/theme";
 import Card from "../components/Card";
 
 function StatBox({ label, value }) {
@@ -14,13 +15,15 @@ function StatBox({ label, value }) {
 }
 
 export default function HomeScreen({ navigation }) {
-  const { players, teams, matches, tournaments } = useAppState();
+  const { teams: allTeams } = useAppState();
+  const { mine, canEdit } = useAccess();
+  const { players, teams, matches, tournaments } = mine;
   const liveMatches = matches.filter((m) => m.status === "live");
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>🏏 CricCorner</Text>
+        <Text style={styles.title}>🏏 Cricket Scorer</Text>
         <Text style={styles.subtitle}>Everything you need to run match day</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
@@ -34,15 +37,17 @@ export default function HomeScreen({ navigation }) {
           <Card>
             <Text style={typography.h3}>🔴 Live now</Text>
             {liveMatches.map((m) => {
-              const teamA = teams.find((t) => t.id === m.teamAId);
-              const teamB = teams.find((t) => t.id === m.teamBId);
+              const teamA = allTeams.find((t) => t.id === m.teamAId);
+              const teamB = allTeams.find((t) => t.id === m.teamBId);
               return (
                 <Pressable
                   key={m.id}
-                  onPress={() => navigation.navigate("Matches", { screen: "LiveScoring", params: { matchId: m.id } })}
+                  onPress={() => navigation.navigate("Matches", { screen: canEdit("matches", m.id) ? "LiveScoring" : "Scorecard", params: { matchId: m.id } })}
                   style={styles.liveRow}
                 >
-                  <Text style={typography.body}>{teamA?.name} vs {teamB?.name}</Text>
+                  <Text style={typography.body}>
+                    {teamA?.name} vs {teamB?.name}
+                  </Text>
                   <Text style={{ color: colors.danger, fontWeight: "700" }}>LIVE ›</Text>
                 </Pressable>
               );
@@ -58,6 +63,7 @@ export default function HomeScreen({ navigation }) {
           <QuickAction label="🗓️ Schedule a match" onPress={() => navigation.navigate("Matches", { screen: "ScheduleMatch" })} />
           <QuickAction label="🏆 Create a tournament" onPress={() => navigation.navigate("Tournaments", { screen: "CreateTournament" })} />
         </Card>
+        <CopyrightFooter onOpenTerms={() => navigation.navigate("Profile", { screen: "Legal" })} />
       </ScrollView>
     </View>
   );
@@ -81,6 +87,21 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: "row", gap: spacing.sm },
   statBox: { flex: 1, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: colors.primary },
-  liveRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.sm },
-  quickAction: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.border },
+  liveRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.sm,
+  },
+  quickAction: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
 });

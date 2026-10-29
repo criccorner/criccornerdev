@@ -11,3 +11,20 @@ npm-debug.*
 web-build/
 .DS_Store
 .vs/
+
+# more signing and secret files
+*.keystore
+.env
+.env.*
+google-services.json
+service-account*.json
+
+# build output
+*.aab
+*.apk
+*.log
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.idea/

@@ -89,6 +89,25 @@ export function reducer(state, action) {
       return { ...state, teams: [...state.teams, team] };
     }
 
+    case "UPDATE_TEAM": {
+      // Rename a team. Finished matches keep a result sentence that starts with the winner's name
+      // ("Hawthorn Titans won by 5 runs"), so that one is updated too (only when it starts with the old name).
+      const { teamId, name } = action.payload;
+      const clean = String(name || "").trim().replace(/\s+/g, " ");
+      const old = state.teams.find((t) => t.id === teamId);
+      if (!old || !clean || clean === old.name) return state;
+      const fix = (m) => {
+        if ((m.teamAId !== teamId && m.teamBId !== teamId) || typeof m.result !== "string") return m;
+        const lead = old.name + " won by";
+        return m.result.startsWith(lead) ? { ...m, result: clean + m.result.slice(old.name.length) } : m;
+      };
+      return {
+        ...state,
+        teams: state.teams.map((t) => (t.id === teamId ? { ...t, name: clean } : t)),
+        matches: state.matches.map(fix),
+      };
+    }
+
     case "SET_TEAM_INVITE": {
       // The secret code in the team's invite link. A new code makes old links stop working.
       const { teamId, code } = action.payload;

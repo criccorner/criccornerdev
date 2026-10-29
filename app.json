@@ -2,13 +2,15 @@
   "expo": {
     "name": "CricCorner",
     "slug": "criccorner",
-    "version": "2.0.5",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "criccorner",
     "newArchEnabled": false,
     "splash": {
-      "backgroundColor": "#0B5D3B"
+      "backgroundColor": "#01365C",
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -18,7 +20,12 @@
       "bundleIdentifier": "com.yourcompany.criccorner"
     },
     "android": {
-      "package": "com.yourcompany.criccorner"
+      "package": "com.criccorner",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "backgroundColor": "#01365C"
+      }
     },
     "plugins": [
       [
@@ -35,6 +42,10 @@
         "projectId": "dcb8cc9e-23c2-4c09-85fe-cf70eadb448c"
       }
     },
-    "owner": "cric-corner"
+    "owner": "cric-corner",
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }

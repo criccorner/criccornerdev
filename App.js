@@ -20,7 +20,7 @@ export default function App() {
 
   if (!Root) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0B5D3B", alignItems: "center", justifyContent: "center" }}>
+      <View style={{ flex: 1, backgroundColor: "#01365C", alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator color="#fff" />
       </View>
     );

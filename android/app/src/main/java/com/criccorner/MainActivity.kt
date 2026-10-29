@@ -1,4 +1,4 @@
-package com.yourcompany.criccorner
+package com.criccorner
 
 import android.os.Build
 import android.os.Bundle

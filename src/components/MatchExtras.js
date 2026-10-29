@@ -8,7 +8,7 @@ import { STATUSES, statusInfo, availabilityOf, summarise } from "../utils/availa
 import { checkHighlightUrl, HIGHLIGHT_KINDS, MAX_HIGHLIGHTS_PER_TEAM, platformOf } from "../utils/social";
 
 // Player / Batter / Bowler / Fielder of the match, shown under the result.
-export function AwardsCard({ match, teams, players }) {
+export function AwardsCard({ match, teams, players, onPlayer }) {
   const a = matchAwards(match, teams);
   if (!a) return null;
   const nameOf = (id) => (players.find((p) => p.id === id) || {}).name || "Unknown";
@@ -27,7 +27,7 @@ export function AwardsCard({ match, teams, players }) {
           <Text style={styles.awardIcon}>{icon}</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.awardTitle}>{title}</Text>
-            <Text style={styles.awardName}>{nameOf(w.playerId)}</Text>
+            <Text style={[styles.awardName, onPlayer && { color: colors.primary }]} onPress={onPlayer ? () => onPlayer(w.playerId) : undefined}>{nameOf(w.playerId)}{onPlayer ? " ›" : ""}</Text>
             {w.text ? <Text style={styles.awardSub}>{w.text}</Text> : null}
           </View>
           {extra ? <Text style={styles.awardPts}>{extra}</Text> : null}

@@ -33,7 +33,8 @@ const setProp = (key, value) => {
   if (re.test(props)) props = props.replace(re, `${key}=${value}`);
   else props = props.replace(/\s*$/, `\n${key}=${value}\n`);
 };
-setProp("android.enableProguardInReleaseBuilds", "true");
+setProp("android.enableProguardInReleaseBuilds", "true"); // SDK 51 and older name
+setProp("android.enableMinifyInReleaseBuilds", "true"); // SDK 52+ name (resource shrinking needs this on)
 setProp("android.enableShrinkResourcesInReleaseBuilds", "true");
 if (!/CRICCORNER_KEYSTORE_FILE/.test(props)) {
   props += `
@@ -86,8 +87,17 @@ if (g.includes(MARK)) {
     warn("could not find signingConfigs in android/app/build.gradle; set the release signing by hand");
   }
 }
-if (!/CRICCORNER_KEYSTORE_FILE\s*=/.test(props.replace(/^\s*#.*$/gm, ""))) {
-  warn("No release keystore set yet. Until you set CRICCORNER_KEYSTORE_FILE the build still uses the public debug key (see SECURITY.md step 2).");
+// Gradle reads the keystore settings from the project's gradle.properties AND from the user-level
+// ~/.gradle/gradle.properties (or GRADLE_USER_HOME), so look in both, plus the environment.
+const readSetting = (file) => {
+  try { return /^\s*CRICCORNER_KEYSTORE_FILE\s*=\s*\S+/m.test(fs.readFileSync(file, "utf8")); } catch (e) { return false; }
+};
+const userHome = process.env.GRADLE_USER_HOME || path.join(require("os").homedir(), ".gradle");
+const keystoreSet = readSetting(gradleProps) || readSetting(path.join(userHome, "gradle.properties")) || !!process.env.ORG_GRADLE_PROJECT_CRICCORNER_KEYSTORE_FILE;
+if (keystoreSet) {
+  done("release keystore setting found (your build will be signed with your own key)");
+} else {
+  warn("No release keystore set yet. Until you set CRICCORNER_KEYSTORE_FILE (in " + path.join(userHome, "gradle.properties") + ") the build still uses the public debug key (see SECURITY.md step 2).");
 }
 
 // 3. AndroidManifest: no backups ----------------------------------------------------

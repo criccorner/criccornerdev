@@ -56,11 +56,17 @@ function WheelCard({ sc, match, nameOf }) {
   );
 }
 
-function InningsView({ innings, number, match, teams, players }) {
+function InningsView({ innings, number, match, teams, players, onPlayer }) {
   const sc = buildScorecard(innings);
   if (!sc) return null;
   const nameOf = (id) => players.find((p) => p.id === id)?.name || "Unknown";
   const tagged = (id) => nameOf(id) + roleTag(match, id);
+  // A name that opens that player's profile and stats.
+  const link = (id, text, extra) => (
+    <Text onPress={onPlayer ? () => onPlayer(id) : undefined} style={[styles.name, onPlayer && styles.nameLink, extra]}>
+      {text}
+    </Text>
+  );
   const battingTeam = teams.find((t) => t.id === innings.battingTeamId);
   const live = match.status === "live" && match.currentInnings === number;
 
@@ -100,10 +106,7 @@ function InningsView({ innings, number, match, teams, players }) {
           return (
             <View key={r.id} style={styles.row}>
               <View style={{ flex: 3 }}>
-                <Text style={[styles.name, atCrease && { color: colors.primary }]}>
-                  {tagged(r.id)}
-                  {atCrease && r.id === sc.striker ? " *" : ""}
-                </Text>
+                {link(r.id, tagged(r.id) + (atCrease && r.id === sc.striker ? " *" : ""))}
                 <Text style={styles.sub}>{dismissalText(r, nameOf, atCrease)}</Text>
               </View>
               <Td bold>{r.runs}</Td>
@@ -129,7 +132,12 @@ function InningsView({ innings, number, match, teams, players }) {
         {yetToBat.length > 0 ? (
           <Text style={[typography.muted, { marginTop: spacing.sm }]}>
             <Text style={{ fontWeight: "700" }}>Yet to bat: </Text>
-            {yetToBat.map((p) => p.name).join(", ")}
+            {yetToBat.map((p, i) => (
+              <Text key={p.id} onPress={onPlayer ? () => onPlayer(p.id) : undefined} style={onPlayer ? styles.nameLink : undefined}>
+                {i ? ", " : ""}
+                {p.name}
+              </Text>
+            ))}
           </Text>
         ) : null}
       </Card>
@@ -171,7 +179,7 @@ function InningsView({ innings, number, match, teams, players }) {
         </View>
         {sc.bowling.map((b) => (
           <View key={b.id} style={styles.row}>
-            <Text style={[styles.name, { flex: 3 }]}>{tagged(b.id)}</Text>
+            <View style={{ flex: 3 }}>{link(b.id, tagged(b.id))}</View>
             <Td>{b.overs}</Td>
             <Td>{b.maidens}</Td>
             <Td>{b.runs}</Td>
@@ -264,7 +272,7 @@ export default function ScorecardScreen({ route }) {
           />
         ) : null}
 
-        {match.status === "completed" ? <AwardsCard match={match} teams={teams} players={players} /> : null}
+        {match.status === "completed" ? <AwardsCard match={match} teams={teams} players={players} onPlayer={(playerId) => navigation.navigate("PlayerStats", { playerId })} /> : null}
 
         {match.status !== "scheduled" ? (
           <HighlightsCard
@@ -301,7 +309,7 @@ export default function ScorecardScreen({ route }) {
                 })}
               </View>
             ) : null}
-            <InningsView innings={innings} number={active} match={match} teams={teams} players={players} />
+            <InningsView innings={innings} number={active} match={match} teams={teams} players={players} onPlayer={(playerId) => navigation.navigate("PlayerStats", { playerId })} />
           </>
         )}
 
@@ -359,6 +367,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: colors.border },
   totalRow: { borderBottomWidth: 0 },
   name: { fontSize: 14, fontWeight: "600", color: colors.text },
+  nameLink: { color: colors.primary, fontWeight: "700" },
   sub: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   td: { fontSize: 13, color: colors.text, textAlign: "center" },
 });

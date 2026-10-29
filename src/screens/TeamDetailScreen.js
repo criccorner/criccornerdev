@@ -129,7 +129,10 @@ export default function TeamDetailScreen({ route, navigation }) {
           <Text style={typography.h2}>{team.name}</Text>
           <Text style={typography.muted}>{roster.length} player{roster.length === 1 ? "" : "s"} on roster</Text>
           {canManage ? (
-            <View style={{ flexDirection: "row", gap: spacing.md, marginTop: 2 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: 2 }}>
+              <Pressable onPress={() => navigation.navigate("EditTeam", { teamId })} hitSlop={6}>
+                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 12 }}>✏️ Edit name</Text>
+              </Pressable>
               <Pressable onPress={changeLogo} disabled={logoBusy}>
                 <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 12 }}>{logoBusy ? "Uploading…" : team.logoUrl ? "Change logo" : "Add logo"}</Text>
               </Pressable>

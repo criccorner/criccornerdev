@@ -12,5 +12,5 @@
 // APP_DOWNLOAD_URL: where people can download the app (optional). It is added to the
 //   invite message as "No app yet?".
 // ---------------------------------------------------------------------------
-export const INVITE_WEB_BASE = "https://criccornerdevdb.github.io/criccornerdev/";
+export const INVITE_WEB_BASE = "https://criccorner.github.io/criccornerdev/";
 export const APP_DOWNLOAD_URL = "";

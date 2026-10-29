@@ -5,7 +5,7 @@
 // starts (see App.js), by overwriting the objects below in place. Screens
 // build their styles after that, so they pick up the theme automatically.
 
-export const DEFAULT_THEME = "classic";
+export const DEFAULT_THEME = "lagoon";
 
 const base = {
   spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
@@ -13,6 +13,15 @@ const base = {
 };
 
 export const THEMES = {
+  lagoon: {
+    label: "Lagoon",
+    blurb: "Deep navy with teal. Clean, medium corners. The default.",
+    // primary is the navy of the brand; accent is the brand teal, a touch deeper so small teal text stays readable on white.
+    colors: { primary: "#01365C", primaryDark: "#012743", accent: "#068A97", background: "#F0F7F9", surface: "#FFFFFF", border: "#D3E4E9", text: "#0B2433", textMuted: "#5B7380" },
+    radius: { sm: 6, md: 12, lg: 18, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.06, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
   classic: {
     label: "Classic Green",
     blurb: "Deep cricket green and gold. Soft, rounded cards.",
@@ -63,7 +72,7 @@ export const THEMES = {
   },
 };
 
-export const THEME_ORDER = ["classic", "ocean", "sunset", "royal", "midnight", "crimson"];
+export const THEME_ORDER = ["lagoon", "classic", "ocean", "sunset", "royal", "midnight", "crimson"];
 
 // These objects are exported once and then UPDATED IN PLACE by applyTheme.
 export const colors = {};

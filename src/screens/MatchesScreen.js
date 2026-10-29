@@ -45,7 +45,7 @@ export default function MatchesScreen({ navigation }) {
             <Pressable onPress={() => openMatch(item)}>
               <Card>
                 <View style={styles.rowTop}>
-                  <Text style={typography.h3}>
+                  <Text style={[typography.h3, { flex: 1, marginRight: spacing.sm }]}>
                     {teamA?.name} vs {teamB?.name}
                   </Text>
                   <Text style={[styles.badge, { backgroundColor: STATUS_COLORS[item.status] }]}>
@@ -73,6 +73,6 @@ export default function MatchesScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   top: { padding: spacing.md, paddingBottom: 0 },
-  rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  badge: { color: "#fff", fontSize: 10, fontWeight: "800", paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill, overflow: "hidden" },
+  rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 },
+  badge: { flexShrink: 0, color: "#fff", fontSize: 10, fontWeight: "800", paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill, overflow: "hidden" },
 });

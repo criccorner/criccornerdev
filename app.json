@@ -21,7 +21,8 @@
     },
     "android": {
       "package": "com.criccorner",
-      "adaptiveIcon": {
+        "versionCode": 2,
+        "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundImage": "./assets/adaptive-icon-background.png",
         "backgroundColor": "#01365C"

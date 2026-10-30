@@ -1,4 +1,5 @@
 import "react-native-gesture-handler";
+import "./src/utils/webAlert";
 import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { loadSavedTheme } from "./src/theme/themeStore";

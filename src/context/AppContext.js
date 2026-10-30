@@ -5,7 +5,7 @@ import { overlap } from "../utils/squads";
 import { useAuth } from "../auth/AuthContext";
 import { rest } from "../cloud/api";
 import { createEngine, syncOnce, diffState, hasChanges, applyRemote, markSynced, addMissing, emptySynced, emptyOwners, fingerprint } from "../cloud/sync";
-import { computeAccess, scopeState, mineLists, canEditItem, guardAction } from "../access/scope";
+import { computeAccess, scopeState, mineLists, otherLists, createdLists, canEditItem, guardAction } from "../access/scope";
 import { canDeleteMatch, captainSides } from "../utils/squads";
 import { playerMatchesUser } from "../auth/identity";
 import { saveCache, loadCache } from "../cloud/cacheStore";
@@ -438,6 +438,9 @@ export function AppProvider({ children }) {
     () => ({
       isAdmin: access.all,
       mine: mineLists(state, access),
+      other: otherLists(state, access),
+      myPlayerIds: access.myPlayerIds || new Set(),
+      createdByMe: createdLists(state, userRef.current),
       canEdit: (kind, id) => canEditItem(state, access, userRef.current, kind, id),
       canDeleteMatch: (match) => canDeleteMatch(match, state.players, userRef.current, playerMatchesUser),
       // Captains correct their own side; the person who created (and scores) the match may correct both; admins too.

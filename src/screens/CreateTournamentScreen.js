@@ -51,7 +51,8 @@ function preview(type, n, legs, groupCount, advance) {
 export default function CreateTournamentScreen({ navigation, route }) {
   const { teams: seenTeams, matches, tournaments } = useAppState();
   const dispatch = useAppDispatch();
-  const { mine, canEdit } = useAccess();
+  const { mine, canEdit, myPlayerIds } = useAccess();
+  const organizerId = (myPlayerIds && [...myPlayerIds][0]) || null; // the creator's own player entry
   const editingId = route?.params?.tournamentId || null;
   const existing = editingId ? tournaments.find((t) => t.id === editingId) : null;
   // You can build a tournament from your own teams (plus the ones it already has).
@@ -97,7 +98,7 @@ export default function CreateTournamentScreen({ navigation, route }) {
       id = newId("tourn");
       state = {
         matches,
-        tournaments: [...tournaments, { id, name: name.trim(), startDate: format.startDate, endDate: endDate.trim() || null, sponsors: [], matchIds: [] }],
+        tournaments: [...tournaments, { id, name: name.trim(), startDate: format.startDate, endDate: endDate.trim() || null, sponsors: [], matchIds: [], ...(organizerId ? { organizerId } : {}) }],
       };
     }
     const res = setTournamentFormat(state, id, format, teamIds, { idGen });

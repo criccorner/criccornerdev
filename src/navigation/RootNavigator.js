@@ -41,7 +41,9 @@ const screenOptions = {
 // library's default styling, which made the tabs look greyed out. It also keeps clear of the
 // phone's own navigation buttons (edge-to-edge screens on newer Android).
 function icon(emoji) {
-  return () => <Text style={{ fontSize: 26 }}>{emoji}</Text>;
+  // Emoji take the text colour's transparency. With no colour set, some phones' default text colour is
+  // slightly see-through, which made these look washed out next to the ones on the Home screen. Fixed opaque.
+  return () => <Text allowFontScaling={false} style={{ fontSize: 26, color: "#000000", opacity: 1, includeFontPadding: false }}>{emoji}</Text>;
 }
 function label(text) {
   return ({ focused }) => (

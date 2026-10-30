@@ -5,10 +5,13 @@ import { baseUrl } from "../cloud/config";
 // opens CricCorner again with the login tokens in the link.
 export const OAUTH_REDIRECT = "criccorner://auth-callback";
 
+// The website cannot receive the criccorner:// link, so Google / Apple sign-in is offered in the phone app only.
+const IS_WEB = typeof document !== "undefined" && typeof navigator !== "undefined" && navigator.product !== "ReactNative";
+
 // Turn a provider OFF here if you have not set it up in Supabase yet.
 export const OAUTH_PROVIDERS = [
-  { key: "google", label: "Continue with Google", icon: "G", enabled: true },
-  { key: "apple", label: "Continue with Apple", icon: "", enabled: true },
+  { key: "google", label: "Continue with Google", icon: "G", enabled: !IS_WEB },
+  { key: "apple", label: "Continue with Apple", icon: "", enabled: !IS_WEB },
 ];
 
 export const oauthUrl = (provider) =>

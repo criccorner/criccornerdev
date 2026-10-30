@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import CopyrightFooter from "../components/CopyrightFooter";
-import { useAppState, useAccess } from "../context/AppContext";
+import { useAppState, useAllState, useAccess } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import Card from "../components/Card";
 
@@ -16,8 +16,9 @@ function StatBox({ label, value }) {
 
 export default function HomeScreen({ navigation }) {
   const { teams: allTeams } = useAppState();
-  const { mine, canEdit } = useAccess();
-  const { players, teams, matches, tournaments } = mine;
+  const { mine, createdByMe, canEdit } = useAccess();
+  const all = useAllState();
+  const { matches } = mine;
   const liveMatches = matches.filter((m) => m.status === "live");
 
   return (
@@ -27,10 +28,17 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.subtitle}>Everything you need to run match day</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
+        <Text style={styles.sectionLabel}>ON CRICCORNER</Text>
         <View style={styles.statsRow}>
-          <StatBox label="Players" value={players.length} />
-          <StatBox label="Teams" value={teams.length} />
-          <StatBox label="Tournaments" value={tournaments.length} />
+          <StatBox label="Players" value={all.players.length} />
+          <StatBox label="Teams" value={all.teams.length} />
+          <StatBox label="Tournaments" value={all.tournaments.length} />
+        </View>
+        <Text style={styles.sectionLabel}>CREATED BY ME</Text>
+        <View style={styles.statsRow}>
+          <StatBox label="Players" value={createdByMe.players.length} />
+          <StatBox label="Teams" value={createdByMe.teams.length} />
+          <StatBox label="Tournaments" value={createdByMe.tournaments.length} />
         </View>
 
         {liveMatches.length > 0 && (
@@ -84,6 +92,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "800", color: "#fff" },
   subtitle: { color: "#CFE3D8", marginTop: spacing.xs },
   body: { padding: spacing.md },
+  sectionLabel: { color: colors.textMuted, fontWeight: "800", fontSize: 11, letterSpacing: 0.8, marginTop: spacing.sm, marginBottom: spacing.xs },
   statsRow: { flexDirection: "row", gap: spacing.sm },
   statBox: { flex: 1, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: colors.primary },

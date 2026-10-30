@@ -1,25 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, FlatList, StyleSheet, Pressable } from "react-native";
 import { useAccess } from "../context/AppContext";
 import { colors, spacing, typography } from "../utils/theme";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import SegmentedTabs from "../components/SegmentedTabs";
 
 export default function TournamentsScreen({ navigation }) {
-  const tournaments = useAccess().mine.tournaments;
+  const { mine, other } = useAccess();
+  const [view, setView] = useState("mine");
+  const tournaments = view === "mine" ? mine.tournaments : other.tournaments;
 
   return (
     <View style={styles.container}>
       <View style={styles.top}>
         <Button title="+ Create Tournament" onPress={() => navigation.navigate("CreateTournament")} />
       </View>
+      <SegmentedTabs options={[["mine", `My tournaments (${mine.tournaments.length})`], ["other", `Other tournaments (${other.tournaments.length})`]]} value={view} onChange={setView} />
       <FlatList
         data={tournaments}
         keyExtractor={(t) => t.id}
         contentContainerStyle={{ padding: spacing.md }}
         ListEmptyComponent={
           <Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>
-            No tournaments yet.
+            {view === "mine" ? "No tournaments yet." : "No other tournaments yet."}
           </Text>
         }
         renderItem={({ item }) => (

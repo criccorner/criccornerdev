@@ -73,6 +73,13 @@ export function computeAccess(raw, user) {
 
   // Visible = mine + what mine refers to (read-only context).
   for (const k of KINDS) for (const id of mine[k]) visible[k].add(id);
+  // Everyone signed in can look at every match and tournament (the "Other matches" / "Other tournaments" lists);
+  // viewing is read-only, and the teams and players they mention come along so names show.
+  for (const m of matches) visible.matches.add(m.id);
+  for (const t of tournaments) {
+    visible.tournaments.add(t.id);
+    for (const id of t.teamIds || []) if (teamById.has(id)) visible.teams.add(id);
+  }
   for (const tid of mine.tournaments) {
     const t = tournaments.find((x) => x.id === tid);
     for (const id of (t && t.matchIds) || []) if (matchById.has(id)) visible.matches.add(id);
@@ -110,6 +117,26 @@ export function scopeState(raw, access) {
 export function mineLists(raw, access) {
   const out = {};
   for (const k of KINDS) out[k] = !access || access.all ? raw[k] : pick(raw[k], access.mine[k]);
+  return out;
+}
+
+// What this account created itself (for the Home counts). Same rule as "created" above.
+export function createdLists(raw, user) {
+  const out = {};
+  for (const k of KINDS) out[k] = [];
+  if (!user) return out;
+  const owners = raw._owners || {};
+  const synced = raw._synced || {};
+  for (const k of KINDS) {
+    out[k] = (raw[k] || []).filter((x) => (owners[k] && owners[k][x.id] === user.id) || !(synced[k] && synced[k][x.id] !== undefined));
+  }
+  return out;
+}
+
+// Lists for the "Other" tabs: everything that is not in `mine`.
+export function otherLists(raw, access) {
+  const out = {};
+  for (const k of KINDS) out[k] = !access || access.all ? [] : (raw[k] || []).filter((x) => !access.mine[k].has(x.id));
   return out;
 }
 

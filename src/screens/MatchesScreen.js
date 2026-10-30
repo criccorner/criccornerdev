@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, FlatList, StyleSheet, Pressable } from "react-native";
 import { useAppState, useAccess } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import { stageTag } from "../utils/stages";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import SegmentedTabs from "../components/SegmentedTabs";
 
 const STATUS_COLORS = {
   scheduled: colors.info,
@@ -14,8 +15,10 @@ const STATUS_COLORS = {
 
 export default function MatchesScreen({ navigation }) {
   const { teams } = useAppState();
-  const { mine, canEdit } = useAccess();
-  const sorted = [...mine.matches].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const { mine, other, canEdit } = useAccess();
+  const [view, setView] = useState("mine");
+  const list = view === "mine" ? mine.matches : other.matches;
+  const sorted = [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const openMatch = (m) => {
     // Only the people who may change a match open its scoring / setup screens; everyone else watches the scorecard.
@@ -29,13 +32,14 @@ export default function MatchesScreen({ navigation }) {
       <View style={styles.top}>
         <Button title="+ Schedule Match" onPress={() => navigation.navigate("ScheduleMatch")} />
       </View>
+      <SegmentedTabs options={[["mine", `My matches (${mine.matches.length})`], ["other", `Other matches (${other.matches.length})`]]} value={view} onChange={setView} />
       <FlatList
         data={sorted}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.md }}
         ListEmptyComponent={
           <Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>
-            No matches scheduled yet.
+            {view === "mine" ? "No matches scheduled yet." : "No other matches yet."}
           </Text>
         }
         renderItem={({ item }) => {
@@ -56,6 +60,7 @@ export default function MatchesScreen({ navigation }) {
                 <Text style={typography.muted}>
                   {item.overs} overs · {item.venue || "Venue TBD"} · {new Date(item.date).toDateString()}
                 </Text>
+                {item.status === "completed" && item.result ? <Text style={styles.result}>🏆 {item.result}</Text> : null}
                 {item.status !== "completed" && canEdit("matches", item.id) ? (
                   <Pressable onPress={() => navigation.navigate("EditMatch", { matchId: item.id })} hitSlop={8} style={{ marginTop: spacing.sm }}>
                     <Text style={{ color: colors.primary, fontWeight: "700" }}>✏️ Edit match details</Text>
@@ -74,5 +79,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   top: { padding: spacing.md, paddingBottom: 0 },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 },
+  result: { color: colors.success, fontWeight: "800", marginTop: 4 },
   badge: { flexShrink: 0, color: "#fff", fontSize: 10, fontWeight: "800", paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill, overflow: "hidden" },
 });

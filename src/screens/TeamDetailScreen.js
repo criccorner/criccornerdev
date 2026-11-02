@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Share } from "react-native";
 import { useAppState, useAppDispatch, useAllState, useAccess, useSync } from "../context/AppContext";
 import { makeInviteCode, buildInviteLinks } from "../invite/links";
@@ -29,12 +29,28 @@ export default function TeamDetailScreen({ route, navigation }) {
   const [query, setQuery] = useState("");
   const [logoBusy, setLogoBusy] = useState(false);
   const { syncNow } = useSync();
+  const [shown, setShown] = useState(10); // recent matches shown
+  const [added, setAdded] = useState(""); // confirmation after adding / inviting a player
+  useEffect(() => {
+    if (!added) return undefined;
+    const t = setTimeout(() => setAdded(""), 5000);
+    return () => clearTimeout(t);
+  }, [added]);
 
   const team = teams.find((t) => t.id === teamId);
   const inTeam = team ? team.playerIds : [];
   const results = useMemo(() => searchPlayers(everyone, query, inTeam), [everyone, query, inTeam]);
   // Shown before you type: players you added and your teammates who aren't in this team yet.
   const record = useMemo(() => teamRecord(matches, teamId), [matches, teamId]);
+  const recent = useMemo(() => matches.filter((m) => m.teamAId === teamId || m.teamBId === teamId).sort((a, b) => new Date(b.date) - new Date(a.date)), [matches, teamId]);
+  // Teams have no fixed captain: it is the captain named in the team's most recent match that has one.
+  const captainId = useMemo(() => {
+    for (const m of recent) {
+      const c = m.teamAId === teamId ? m.captainA : m.captainB;
+      if (c) return c;
+    }
+    return null;
+  }, [recent, teamId]);
   const hall = useMemo(() => hallOfFame(matches, teams, teamId), [matches, teams, teamId]);
   const suggestions = mine.players.filter((p) => !inTeam.includes(p.id));
   if (!team) return null;
@@ -114,9 +130,11 @@ export default function TeamDetailScreen({ route, navigation }) {
   };
 
   const handlePick = (playerId) => {
+    const name = (everyone.find((p) => p.id === playerId) || {}).name || "The player";
     dispatch({ type: pickerMode === "add" ? "ADD_PLAYER_TO_TEAM" : "REQUEST_PLAYER_JOIN", payload: { teamId, playerId } });
+    // Confirm it, and leave the search box empty and ready for the next player.
+    setAdded(pickerMode === "add" ? `✅ ${name} has been added to ${team.name}.` : `✅ Invitation sent to ${name}.`);
     setQuery("");
-    setPickerOpen(false);
   };
 
   const q = query.trim();
@@ -128,6 +146,8 @@ export default function TeamDetailScreen({ route, navigation }) {
         <View style={{ flex: 1, marginLeft: spacing.md }}>
           <Text style={typography.h2}>{team.name}</Text>
           <Text style={typography.muted}>{roster.length} player{roster.length === 1 ? "" : "s"} on roster</Text>
+          <Text style={typography.muted}>Owner: {nameOf(team.ownerId)}{captainId ? ` · Captain: ${nameOf(captainId)}` : ""}</Text>
+          {team.createdByName ? <Text style={typography.muted}>Created by: {team.createdByName}</Text> : null}
           {canManage ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: 2 }}>
               <Pressable onPress={() => navigation.navigate("EditTeam", { teamId })} hitSlop={6}>
@@ -175,6 +195,12 @@ export default function TeamDetailScreen({ route, navigation }) {
         </Card>
       ) : null}
 
+      {added ? (
+        <Card style={{ backgroundColor: colors.success + "22", borderColor: colors.success }}>
+          <Text style={{ color: colors.success, fontWeight: "800" }}>{added}</Text>
+        </Card>
+      ) : null}
+
       {canManage && pickerOpen && (
         <Card>
           <Text style={typography.h3}>{pickerMode === "add" ? "Add a player to the team" : "Invite a player to join"}</Text>
@@ -218,7 +244,7 @@ export default function TeamDetailScreen({ route, navigation }) {
               </Pressable>
             ))
           )}
-          <Button title="Cancel" variant="outline" onPress={() => setPickerOpen(false)} style={{ marginTop: spacing.sm }} />
+          <Button title="Done" variant="outline" onPress={() => { setPickerOpen(false); setQuery(""); }} style={{ marginTop: spacing.sm }} />
         </Card>
       )}
 
@@ -249,6 +275,30 @@ export default function TeamDetailScreen({ route, navigation }) {
           })}
         </Card>
       )}
+
+      <Card>
+        <Text style={typography.h3}>Recent matches</Text>
+        {recent.length === 0 ? <Text style={typography.muted}>No matches played yet.</Text> : null}
+        {recent.slice(0, shown).map((m) => {
+          const oppId = m.teamAId === teamId ? m.teamBId : m.teamAId;
+          const opp = (teams.find((t) => t.id === oppId) || {}).name || "Opponent";
+          return (
+            <Pressable key={m.id} onPress={() => navigation.navigate("Matches", { screen: "Scorecard", params: { matchId: m.id } })} style={styles.matchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.body, { fontWeight: "700" }]} numberOfLines={1}>vs {opp}</Text>
+                <Text style={typography.muted} numberOfLines={1}>{new Date(m.date).toDateString()}{m.venue ? ` · ${m.venue}` : ""}</Text>
+                {m.status === "completed" && m.result ? <Text style={{ color: colors.success, fontSize: 12 }} numberOfLines={2}>{m.result}</Text> : null}
+              </View>
+              <Text style={{ color: colors.textMuted }}>{m.status === "live" ? "🔴 LIVE ›" : m.status === "scheduled" ? "🗓 ›" : "›"}</Text>
+            </Pressable>
+          );
+        })}
+        {recent.length > shown ? (
+          <Pressable onPress={() => setShown(shown + 10)} style={{ paddingVertical: spacing.sm }}>
+            <Text style={{ color: colors.primary, fontWeight: "800" }}>Show more ({recent.length - shown} more)</Text>
+          </Pressable>
+        ) : null}
+      </Card>
 
       <Card>
         <Text style={typography.h3}>Roster</Text>
@@ -285,6 +335,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   actionsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   pickRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  matchRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   requestRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   rosterRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
   avatar: { width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },

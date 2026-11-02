@@ -12,12 +12,12 @@ const arr = (x) => (Array.isArray(x) ? x : null);
 export function squadIds(match, teams, teamId) {
   if (!match) return [];
   const saved = teamId === match.teamAId ? arr(match.squadA) : teamId === match.teamBId ? arr(match.squadB) : null;
-  if (saved) return saved;
+  if (saved && saved.length) return saved;
   const team = (teams || []).find((t) => t.id === teamId);
   return (team && team.playerIds) || [];
 }
 
-export const hasSquads = (match) => !!(match && arr(match.squadA) && arr(match.squadB));
+export const hasSquads = (match) => !!(match && arr(match.squadA) && arr(match.squadB) && (match.squadA.length || match.squadB.length));
 
 // Captain / wicketkeeper of one side of a match (null when not chosen).
 export function captainOf(match, teamId) {
@@ -72,7 +72,8 @@ export const squadFields = (a, b) => ({
 // Starting value for the pickers from a saved match (or empty).
 export const sideFromMatch = (match, side, fallbackIds = []) => {
   const A = side === "A";
-  const ids = arr(A ? match?.squadA : match?.squadB) || fallbackIds;
+  const saved = arr(A ? match?.squadA : match?.squadB);
+  const ids = saved && saved.length ? saved : fallbackIds;
   const c = A ? match?.captainA : match?.captainB;
   const k = A ? match?.keeperA : match?.keeperB;
   return { ids, captainId: ids.includes(c) ? c : null, keeperId: ids.includes(k) ? k : null };

@@ -98,6 +98,50 @@ export function replacePlayer(match, fromId, toId, teams) {
 }
 
 // ---------------------------------------------------------------------------
+// 1b. Swap two players of the same squad: each takes the other's batting and bowling
+// ---------------------------------------------------------------------------
+
+function swapInInnings(inn, a, b, doBat, doBowl) {
+  if (!inn) return inn;
+  const x = (id) => (id === a ? b : id === b ? a : id);
+  const per = {};
+  Object.keys(inn.bowlerChangesPerOver || {}).forEach((k) => { per[k] = doBowl ? x(inn.bowlerChangesPerOver[k]) : inn.bowlerChangesPerOver[k]; });
+  return {
+    ...inn,
+    openers: doBat ? { strikerId: x(inn.openers.strikerId), nonStrikerId: x(inn.openers.nonStrikerId) } : inn.openers,
+    bowlerChangesPerOver: per,
+    balls: (inn.balls || []).map((ball) => {
+      if (ball.type === "swap") return ball;
+      if (ball.type === "bowler") return doBowl ? { ...ball, bowlerId: x(ball.bowlerId) } : ball;
+      return {
+        ...ball,
+        ...(doBat ? { batsmanId: x(ball.batsmanId), newBatsmanId: x(ball.newBatsmanId) } : {}),
+        ...(doBowl ? { bowlerId: x(ball.bowlerId) } : {}),
+      };
+    }),
+  };
+}
+
+// Ashutosh's runs and wickets become Aashish's and the other way round. `parts` is "batting",
+// "bowling" or "both" (default). Captain, wicketkeeper and fielding (catches) stay where they are.
+// Both players must be in the same squad.
+export function swapPlayers(match, aId, bId, teams, parts = "both") {
+  if (!match || !aId || !bId) return { error: "Choose two players." };
+  if (aId === bId) return { error: "Choose two different players." };
+  if (!["batting", "bowling", "both"].includes(parts)) return { error: "Choose what to swap: batting, bowling or both." };
+  const sa = sideOfPlayer(match, aId, teams);
+  const sb = sideOfPlayer(match, bId, teams);
+  if (!sa || !sb) return { error: "Both players must be in this match." };
+  if (sa !== sb) return { error: "Both players must be in the same team's squad." };
+  const doBat = parts !== "bowling";
+  const doBowl = parts !== "batting";
+  const changes = {};
+  if (match.innings1) changes.innings1 = swapInInnings(match.innings1, aId, bId, doBat, doBowl);
+  if (match.innings2) changes.innings2 = swapInInnings(match.innings2, aId, bId, doBat, doBowl);
+  return { changes, side: sa };
+}
+
+// ---------------------------------------------------------------------------
 // 2. Wickets: how a batter was out, and who took the catch / stumping
 // ---------------------------------------------------------------------------
 

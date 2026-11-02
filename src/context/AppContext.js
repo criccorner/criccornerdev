@@ -210,6 +210,37 @@ export function reducer(state, action) {
       return { ...state, matches: [...state.matches, match] };
     }
 
+    case "CLONE_MATCH": {
+      // A fresh scheduled match with the same teams, squads, captains, overs, venue and city. No scores,
+      // no toss, not attached to a tournament - the person edits the date and anything else afterwards.
+      const { matchId, newId: id } = action.payload;
+      const src = state.matches.find((m) => m.id === matchId);
+      if (!src || !id || state.matches.some((m) => m.id === id)) return state;
+      const copy = {
+        id,
+        status: "scheduled",
+        tossWinnerTeamId: null,
+        tossDecision: null,
+        battingFirstTeamId: null,
+        innings1: null,
+        innings2: null,
+        currentInnings: 1,
+        result: null,
+        name: src.name || null,
+        teamAId: src.teamAId,
+        teamBId: src.teamBId,
+        overs: src.overs,
+        venue: src.venue || null,
+        city: src.city || null,
+        date: new Date().toISOString().slice(0, 10),
+        tournamentId: null,
+        stage: null,
+      };
+      for (const k of ["squadA", "squadB"]) if (Array.isArray(src[k])) copy[k] = [...src[k]];
+      for (const k of ["captainA", "captainB", "keeperA", "keeperB"]) if (src[k]) copy[k] = src[k];
+      return { ...state, matches: [...state.matches, copy] };
+    }
+
     case "UPDATE_MATCH": {
       const { matchId, changes } = action.payload;
       return {
@@ -236,6 +267,41 @@ export function reducer(state, action) {
     case "CREATE_TOURNAMENT": {
       const tournament = { id: newId("tourn"), sponsors: [], matchIds: [], ...action.payload };
       return { ...state, tournaments: [...state.tournaments, tournament] };
+    }
+
+    case "UPDATE_TOURNAMENT": {
+      // Name, dates, city and contact only. Fixtures and format are changed elsewhere.
+      const { tournamentId, changes } = action.payload;
+      const ok = ["name", "startDate", "endDate", "city", "cityLabel", "cityLat", "cityLng", "contact"];
+      const clean = {};
+      for (const k of ok) if (changes && k in changes) clean[k] = changes[k];
+      if ("name" in clean) {
+        clean.name = String(clean.name || "").trim().replace(/\s+/g, " ");
+        if (!clean.name) return state;
+      }
+      return { ...state, tournaments: state.tournaments.map((t) => (t.id === tournamentId ? { ...t, ...clean } : t)) };
+    }
+
+    case "UPDATE_SPONSOR": {
+      const { tournamentId, sponsorId, changes } = action.payload;
+      const ok = ["name", "tagline", "contact", "imageUrl"];
+      const clean = {};
+      for (const k of ok) if (changes && k in changes) clean[k] = changes[k];
+      if ("name" in clean && !String(clean.name || "").trim()) return state;
+      return {
+        ...state,
+        tournaments: state.tournaments.map((t) =>
+          t.id === tournamentId ? { ...t, sponsors: (t.sponsors || []).map((sp) => (sp.id === sponsorId ? { ...sp, ...clean } : sp)) } : t
+        ),
+      };
+    }
+
+    case "REMOVE_SPONSOR": {
+      const { tournamentId, sponsorId } = action.payload;
+      return {
+        ...state,
+        tournaments: state.tournaments.map((t) => (t.id === tournamentId ? { ...t, sponsors: (t.sponsors || []).filter((sp) => sp.id !== sponsorId) } : t)),
+      };
     }
 
     case "ADD_SPONSOR_TO_TOURNAMENT": {

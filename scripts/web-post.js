@@ -42,4 +42,13 @@ s = s.replace(/<meta name="viewport" content="([^"]*)"/, (m, c) => (/viewport-fi
 fs.writeFileSync(html, s);
 fs.copyFileSync(html, path.join(dist, "404.html")); // GitHub Pages serves this for unknown paths
 fs.writeFileSync(path.join(dist, ".nojekyll"), "");
+// Keep the Play Store pages (privacy policy, terms, delete-account) at the same addresses as before.
+if (fs.existsSync("site")) {
+  for (const f of fs.readdirSync("site")) {
+    if (f === "index.html") continue; // never replace the app's own page
+    const from = path.join("site", f);
+    if (fs.statSync(from).isFile()) fs.copyFileSync(from, path.join(dist, f));
+  }
+  console.log("copied the legal pages from site/");
+}
 console.log("web site ready in dist/ (base '" + base + "')");

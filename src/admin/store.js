@@ -56,6 +56,29 @@ export async function submitFeedback(userId, { type, detail }) {
   }
 }
 
+// The author may change a submission until the administrator has replied or moved it on from "Open".
+export const canEditFeedback = (f) => !!f && f.status === "Open" && !f.reply;
+
+export async function updateMyFeedback(userId, feedbackId, { type, detail }) {
+  if (!FEEDBACK_TYPES.includes(type)) return fail("Please choose Issue or Suggestion.");
+  const text = (detail || "").trim();
+  if (text.length < 10) return fail("Please enter at least 10 characters of detail.");
+  if (text.length > 1000) return fail("Please keep the detail under 1000 characters.");
+  try {
+    // Only an item that is still Open and unanswered matches, so a changed status is never overwritten.
+    const r = await rest(`feedback?id=eq.${encodeURIComponent(feedbackId)}&user_id=eq.${encodeURIComponent(userId)}&status=eq.Open&reply=is.null`, {
+      method: "PATCH",
+      body: { type, detail: text, updated_at: new Date().toISOString() },
+      headers: { Prefer: "return=representation" },
+    });
+    const rows = (r && r.json) || [];
+    if (!rows.length) return fail("The administrator has already replied or started on this, so it can't be edited any more.");
+    return { ok: true };
+  } catch (e) {
+    return fail(friendlyError(e));
+  }
+}
+
 export async function listMyFeedback(userId) {
   try {
     const r = await rest(`feedback?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`);

@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
-import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
+import { useAppState, useAllState, useAppDispatch, useAccess } from "../context/AppContext";
+import { useAuth } from "../auth/AuthContext";
+import SponsorEditor from "../components/SponsorEditor";
+import { Image } from "react-native";
 import { newId } from "../utils/id";
 import { tournamentProgress, tournamentTables } from "../tournament/plan";
 import { advanceTournament, setMatchWinner, canRegenerate } from "../tournament/actions";
@@ -19,14 +22,14 @@ function PointsTable({ title, rows, nameOf }) {
     <Card>
       <Text style={typography.h3}>{title}</Text>
       <View style={styles.tr}>
-        <Text style={[styles.th, { flex: 3, textAlign: "left" }]}>Team</Text>
+        <Text style={[styles.th, { flex: 4, textAlign: "left" }]}>Team</Text>
         {["P", "W", "L", "T", "Pts", "NRR"].map((h) => (
           <Text key={h} style={[styles.th, h === "NRR" && { flex: 1.6 }]}>{h}</Text>
         ))}
       </View>
       {rows.map((r, i) => (
         <View key={r.teamId} style={styles.tr}>
-          <Text style={[styles.td, { flex: 3, textAlign: "left", fontWeight: i === 0 && r.played ? "800" : "600" }]} numberOfLines={1}>{i + 1}. {nameOf(r.teamId)}</Text>
+          <Text style={[styles.td, { flex: 4, textAlign: "left", fontWeight: i === 0 && r.played ? "800" : "600" }]}>{i + 1}. {nameOf(r.teamId)}</Text>
           <Text style={styles.td}>{r.played}</Text>
           <Text style={styles.td}>{r.won}</Text>
           <Text style={styles.td}>{r.lost}</Text>
@@ -45,11 +48,13 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const dispatch = useAppDispatch();
   const { canEdit } = useAccess();
   const manage = canEdit("tournaments", tournamentId);
-  const [sponsorName, setSponsorName] = useState("");
-  const [sponsorTagline, setSponsorTagline] = useState("");
+  const [editingSponsor, setEditingSponsor] = useState(null); // sponsor being edited, or "new"
+  const everyone = useAllState().players;
+  const { user } = useAuth();
 
   const tournament = tournaments.find((t) => t.id === tournamentId);
   if (!tournament) return null;
+  const organizerName = ((everyone || []).find((p) => p.id === tournament.organizerId) || {}).name || null;
 
   const state = { matches, tournaments };
   const nameOf = (id) => teams.find((t) => t.id === id)?.name || "TBD";
@@ -74,12 +79,16 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const openMatch = (m) =>
     navigation.navigate(m.status === "completed" || !canEdit("matches", m.id) ? "Scorecard" : m.status === "live" ? "LiveScoring" : "MatchSetup", { matchId: m.id });
 
-  const addSponsor = () => {
-    if (!sponsorName.trim()) return;
-    dispatch({ type: "ADD_SPONSOR_TO_TOURNAMENT", payload: { tournamentId, sponsor: { name: sponsorName.trim(), tagline: sponsorTagline.trim() || null } } });
-    setSponsorName("");
-    setSponsorTagline("");
+  const saveSponsor = (sp) => {
+    if (editingSponsor && editingSponsor !== "new") dispatch({ type: "UPDATE_SPONSOR", payload: { tournamentId, sponsorId: editingSponsor.id, changes: sp } });
+    else dispatch({ type: "ADD_SPONSOR_TO_TOURNAMENT", payload: { tournamentId, sponsor: sp } });
+    setEditingSponsor(null);
   };
+  const removeSponsor = (sp) =>
+    Alert.alert(`Remove ${sp.name}?`, "It will stop showing on this tournament's matches.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => dispatch({ type: "REMOVE_SPONSOR", payload: { tournamentId, sponsorId: sp.id } }) },
+    ]);
 
   const MatchRow = ({ m }) => (
     <Pressable onPress={() => openMatch(m)} style={styles.matchRow}>
@@ -100,6 +109,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
         {tournament.startDate}{tournament.endDate ? ` – ${tournament.endDate}` : ""}
         {f ? ` · ${FORMAT_NAME[f.type]} · ${f.overs} overs · ${tournament.teamIds.length} teams` : ""}
       </Text>
+      {tournament.city ? <Text style={typography.muted}>📍 {tournament.cityLabel || tournament.city}</Text> : null}
+      {organizerName ? <Text style={typography.muted}>Organizer: {organizerName}</Text> : null}
+      {tournament.contact ? <Text style={[typography.body, { marginTop: 2 }]}>Want to join? Contact: <Text style={{ fontWeight: "800" }}>{tournament.contact}</Text></Text> : null}
+      {manage ? (
+        <Pressable onPress={() => navigation.navigate("EditTournament", { tournamentId })} hitSlop={6} style={{ marginTop: spacing.xs }}>
+          <Text style={{ color: colors.primary, fontWeight: "800" }}>✏️ Edit name, dates and details</Text>
+        </Pressable>
+      ) : null}
 
       {progress.complete ? (
         <Card style={styles.champion}>
@@ -210,23 +227,40 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
       <Card>
         <Text style={typography.h3}>Sponsors</Text>
-        <Text style={[typography.muted, { marginBottom: spacing.sm }]}>Sponsors added here appear on the scoreboard of every match in this tournament.</Text>
+        <Text style={[typography.muted, { marginBottom: spacing.sm }]}>Sponsors added here appear at the top of every match in this tournament, with their picture.</Text>
+        {tournament.sponsors.length === 0 ? <Text style={typography.muted}>No sponsors yet.</Text> : null}
         {tournament.sponsors.map((sp) => (
           <View key={sp.id} style={styles.sponsorRow}>
-            <View style={styles.sponsorDot} />
-            <View>
+            {sp.imageUrl ? <Image source={{ uri: sp.imageUrl }} style={styles.sponsorImg} /> : <View style={styles.sponsorDot} />}
+            <View style={{ flex: 1 }}>
               <Text style={typography.body}>{sp.name}</Text>
               {sp.tagline ? <Text style={typography.muted}>{sp.tagline}</Text> : null}
+              {sp.contact ? <Text style={typography.muted}>{sp.contact}</Text> : null}
             </View>
+            {manage ? (
+              <View style={{ alignItems: "flex-end" }}>
+                <Pressable onPress={() => setEditingSponsor(sp)} hitSlop={6}><Text style={{ color: colors.primary, fontWeight: "800", fontSize: 12 }}>Edit</Text></Pressable>
+                <Pressable onPress={() => removeSponsor(sp)} hitSlop={6}><Text style={{ color: colors.danger, fontWeight: "800", fontSize: 12, marginTop: 4 }}>Remove</Text></Pressable>
+              </View>
+            ) : null}
           </View>
         ))}
         {manage ? (
-          <>
-            <View style={{ height: spacing.sm }} />
-            <FormField label="Sponsor Name" value={sponsorName} onChangeText={setSponsorName} placeholder="e.g. Acme Sports" />
-            <FormField label="Tagline (optional)" value={sponsorTagline} onChangeText={setSponsorTagline} placeholder="e.g. Official Kit Partner" />
-            <Button title="+ Add Sponsor" onPress={addSponsor} />
-          </>
+          editingSponsor ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={typography.label}>{editingSponsor === "new" ? "NEW SPONSOR" : "EDIT SPONSOR"}</Text>
+              <SponsorEditor
+                key={editingSponsor === "new" ? "new" : editingSponsor.id}
+                userId={user && user.id}
+                initial={editingSponsor === "new" ? null : editingSponsor}
+                onSave={saveSponsor}
+                onCancel={() => setEditingSponsor(null)}
+                saveLabel={editingSponsor === "new" ? "+ Add sponsor" : "Save sponsor"}
+              />
+            </View>
+          ) : (
+            <Button title="+ Add Sponsor" onPress={() => setEditingSponsor("new")} style={{ marginTop: spacing.sm }} />
+          )
         ) : null}
       </Card>
     </ScrollView>
@@ -244,5 +278,6 @@ const styles = StyleSheet.create({
   matchRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.sm },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sponsorRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+  sponsorImg: { width: 40, height: 40, borderRadius: radius.sm, marginRight: spacing.sm, backgroundColor: colors.border },
   sponsorDot: { width: 8, height: 8, borderRadius: radius.pill, backgroundColor: colors.accent, marginRight: spacing.sm },
 });

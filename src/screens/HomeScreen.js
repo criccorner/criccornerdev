@@ -1,16 +1,24 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import CopyrightFooter from "../components/CopyrightFooter";
 import { useAppState, useAllState, useAccess } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import Card from "../components/Card";
+import GlobalSearch from "../components/GlobalSearch";
+import NotificationBell from "../components/NotificationBell";
 
-function StatBox({ label, value }) {
-  return (
+function StatBox({ label, value, onPress }) {
+  const body = (
     <Card style={styles.statBox}>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={typography.muted}>{label}</Text>
     </Card>
+  );
+  if (!onPress) return <View style={{ flex: 1 }}>{body}</View>;
+  return (
+    <Pressable onPress={onPress} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open ${label}`}>
+      {body}
+    </Pressable>
   );
 }
 
@@ -19,15 +27,25 @@ export default function HomeScreen({ navigation }) {
   const { mine, createdByMe, canEdit } = useAccess();
   const all = useAllState();
   const { matches } = mine;
+  const [searching, setSearching] = useState(false);
+  const open = (tab, screen) => () => navigation.navigate(tab, { screen });
   const liveMatches = matches.filter((m) => m.status === "live");
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>🏏 Cricket Scorer</Text>
-        <Text style={styles.subtitle}>Everything you need to run match day</Text>
+        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>🏏 Cricket Scorer</Text>
+            <Text style={styles.subtitle}>Everything you need to run match day</Text>
+          </View>
+          <NotificationBell navigation={navigation} />
+        </View>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
+        <GlobalSearch navigation={navigation} onActive={setSearching} />
+        {searching ? null : (
+        <>
         <Text style={styles.sectionLabel}>ON CRICCORNER</Text>
         <View style={styles.statsRow}>
           <StatBox label="Players" value={all.players.length} />
@@ -36,9 +54,9 @@ export default function HomeScreen({ navigation }) {
         </View>
         <Text style={styles.sectionLabel}>CREATED BY ME</Text>
         <View style={styles.statsRow}>
-          <StatBox label="Players" value={createdByMe.players.length} />
-          <StatBox label="Teams" value={createdByMe.teams.length} />
-          <StatBox label="Tournaments" value={createdByMe.tournaments.length} />
+          <StatBox label="Players" value={createdByMe.players.length} onPress={open("Players", "PlayersList")} />
+          <StatBox label="Teams" value={createdByMe.teams.length} onPress={open("Teams", "TeamsList")} />
+          <StatBox label="Tournaments" value={createdByMe.tournaments.length} onPress={open("Tournaments", "TournamentsList")} />
         </View>
 
         {liveMatches.length > 0 && (
@@ -72,6 +90,8 @@ export default function HomeScreen({ navigation }) {
           <QuickAction label="🏆 Create a tournament" onPress={() => navigation.navigate("Tournaments", { screen: "CreateTournament" })} />
         </Card>
         <CopyrightFooter onOpenTerms={() => navigation.navigate("Profile", { screen: "Legal" })} />
+        </>
+        )}
       </ScrollView>
     </View>
   );

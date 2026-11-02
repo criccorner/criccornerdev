@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth/AuthContext";
-import { listMyFeedback } from "../../admin/store";
+import { listMyFeedback, canEditFeedback } from "../../admin/store";
 import Card from "../../components/Card";
 import Badge, { STATUS_COLORS } from "../../components/Badge";
 import Button from "../../components/Button";
@@ -42,6 +42,11 @@ export default function MyFeedbackScreen({ navigation }) {
               <Text style={typography.muted}>{new Date(item.createdAt).toLocaleDateString()}</Text>
             </View>
             <Text style={[typography.body, { marginTop: spacing.sm }]}>{item.detail}</Text>
+            {canEditFeedback(item) ? (
+              <Pressable onPress={() => navigation.navigate("Feedback", { edit: item })} hitSlop={8} style={{ marginTop: spacing.sm }}>
+                <Text style={{ color: colors.primary, fontWeight: "800" }}>✏️ Edit</Text>
+              </Pressable>
+            ) : null}
             {item.reply ? (
               <View style={styles.reply}>
                 <Text style={typography.label}>REPLY FROM {(item.repliedBy || "ADMIN").toUpperCase()}</Text>

@@ -1,29 +1,30 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useAuth } from "../../auth/AuthContext";
-import { submitFeedback, FEEDBACK_TYPES } from "../../admin/store";
+import { submitFeedback, updateMyFeedback, FEEDBACK_TYPES } from "../../admin/store";
 import Button from "../../components/Button";
 import { colors, spacing, typography, radius } from "../../utils/theme";
 
 const MAX = 1000;
 
-export default function FeedbackScreen({ navigation }) {
+export default function FeedbackScreen({ navigation, route }) {
+  const edit = route && route.params && route.params.edit ? route.params.edit : null; // an item being changed
   const { user } = useAuth();
-  const [type, setType] = useState(null);
-  const [detail, setDetail] = useState("");
+  const [type, setType] = useState(edit ? edit.type : null);
+  const [detail, setDetail] = useState(edit ? edit.detail : "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     setError("");
     setBusy(true);
-    const r = await submitFeedback(user.id, { type, detail });
+    const r = edit ? await updateMyFeedback(user.id, edit.id, { type, detail }) : await submitFeedback(user.id, { type, detail });
     setBusy(false);
     if (!r.ok) {
       setError(r.error);
       return;
     }
-    Alert.alert("Thank you!", "Your submission has been sent to the administrator.", [
+    Alert.alert(edit ? "Updated" : "Thank you!", edit ? "Your changes have been saved." : "Your submission has been sent to the administrator.", [
       { text: "OK", onPress: () => navigation.replace("MyFeedback") },
     ]);
   };
@@ -56,7 +57,8 @@ export default function FeedbackScreen({ navigation }) {
         <Text style={[typography.muted, { textAlign: "right", marginBottom: spacing.md }]}>{detail.length}/{MAX}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button title="Submit" onPress={submit} loading={busy} />
+        <Button title={edit ? "Save changes" : "Submit"} onPress={submit} loading={busy} />
+        {edit ? <Text style={[typography.muted, { marginTop: spacing.sm }]}>You can change this until the administrator replies or starts working on it.</Text> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

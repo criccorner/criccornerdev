@@ -25,6 +25,9 @@ import ScorecardScreen from "../screens/ScorecardScreen";
 import TournamentsScreen from "../screens/TournamentsScreen";
 import CreateTournamentScreen from "../screens/CreateTournamentScreen";
 import TournamentDetailScreen from "../screens/TournamentDetailScreen";
+import EditTournamentScreen from "../screens/EditTournamentScreen";
+import AttendanceScreen from "../screens/AttendanceScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
 import ProfileStack from "./ProfileStack";
 import MyStatsScreen from "../screens/stats/MyStatsScreen";
 
@@ -143,7 +146,9 @@ function MatchesStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="MatchesList" component={MatchesScreen} options={{ title: "Matches" }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
       <Stack.Screen name="ScheduleMatch" component={ScheduleMatchScreen} options={{ title: "Schedule Match" }} />
+      <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ title: "Who is playing?" }} />
       <Stack.Screen name="MatchSetup" component={MatchSetupScreen} options={{ title: "Match Setup" }} />
       <Stack.Screen name="EditMatch" component={EditMatchScreen} options={{ title: "Edit Match" }} />
       <Stack.Screen name="Corrections" component={CorrectionsScreen} options={{ title: "Captain Corrections" }} />
@@ -160,7 +165,9 @@ function TournamentsStack() {
       <Stack.Screen name="TournamentsList" component={TournamentsScreen} options={{ title: "Tournaments" }} />
       <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} options={{ title: "Create Tournament" }} />
       <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} options={{ title: "Tournament" }} />
+      <Stack.Screen name="EditTournament" component={EditTournamentScreen} options={{ title: "Edit Tournament" }} />
       <Stack.Screen name="ScheduleMatch" component={ScheduleMatchScreen} options={{ title: "Schedule Match" }} />
+      <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ title: "Who is playing?" }} />
       <Stack.Screen name="MatchSetup" component={MatchSetupScreen} options={{ title: "Match Setup" }} />
       <Stack.Screen name="EditMatch" component={EditMatchScreen} options={{ title: "Edit Match" }} />
       <Stack.Screen name="Corrections" component={CorrectionsScreen} options={{ title: "Captain Corrections" }} />

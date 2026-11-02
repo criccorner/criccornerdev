@@ -1,3 +1,4 @@
+import { useAuth } from "../auth/AuthContext";
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 import { useAccess, useAppDispatch } from "../context/AppContext";
@@ -8,6 +9,7 @@ import Button from "../components/Button";
 export default function CreateTeamScreen({ navigation }) {
   const players = useAccess().mine.players;
   const dispatch = useAppDispatch();
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [ownerId, setOwnerId] = useState(null);
 
@@ -16,7 +18,7 @@ export default function CreateTeamScreen({ navigation }) {
       Alert.alert("Team name required");
       return;
     }
-    dispatch({ type: "ADD_TEAM", payload: { name: name.trim(), ownerId } });
+    dispatch({ type: "ADD_TEAM", payload: { name: name.trim(), ownerId, createdByName: (user && user.name) || null } });
     navigation.goBack();
   };
 

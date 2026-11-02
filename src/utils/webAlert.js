@@ -1,3 +1,4 @@
+/* global navigator, window */
 // On the web build, React Native's Alert.alert does nothing, so every confirmation ("Delete?") and
 // every error message would silently vanish. This puts a browser dialog in its place. On the phone
 // apps it does nothing at all.

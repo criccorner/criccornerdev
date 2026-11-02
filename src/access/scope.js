@@ -9,24 +9,10 @@
 //
 // Pure functions - no React, no network.
 import { playerMatchesUser } from "../auth/identity";
+import { canChangeAnswer } from "../utils/attendance";
 
 const KINDS = ["players", "teams", "matches", "tournaments"];
 const sets = () => ({ players: new Set(), teams: new Set(), matches: new Set(), tournaments: new Set() });
-
-// Every string inside `value` that is a known player id.
-function collectPlayerIds(value, known, out) {
-  const stack = [value];
-  while (stack.length) {
-    const v = stack.pop();
-    if (typeof v === "string") {
-      if (known.has(v)) out.add(v);
-    } else if (Array.isArray(v)) {
-      for (let i = 0; i < v.length; i++) stack.push(v[i]);
-    } else if (v && typeof v === "object") {
-      for (const k in v) stack.push(v[k]);
-    }
-  }
-}
 
 export function computeAccess(raw, user) {
   if (!user || user.isAdmin) return { all: true, isAdmin: !!user, me: user ? user.id : null, mine: null, visible: null, captainMatches: new Set(), myPlayerIds: new Set() };
@@ -56,7 +42,8 @@ export function computeAccess(raw, user) {
   for (const m of matches) {
     const cap = myPlayerIds.has(m.captainA) || myPlayerIds.has(m.captainB);
     if (cap) captainMatches.add(m.id);
-    const hasSquads = Array.isArray(m.squadA) && Array.isArray(m.squadB);
+    // Squads not picked yet (players still marking attendance): the match belongs to everyone in both teams.
+    const hasSquads = Array.isArray(m.squadA) && Array.isArray(m.squadB) && (m.squadA.length > 0 || m.squadB.length > 0);
     const inSquad = hasSquads ? [...m.squadA, ...m.squadB].some((id) => myPlayerIds.has(id)) : mine.teams.has(m.teamAId) || mine.teams.has(m.teamBId);
     if (created("matches", m.id) || cap || inSquad) mine.matches.add(m.id);
   }
@@ -65,40 +52,18 @@ export function computeAccess(raw, user) {
     if (created("tournaments", t.id) || (t.teamIds || []).some((id) => mine.teams.has(id)) || (t.matchIds || []).some((id) => mine.matches.has(id))) mine.tournaments.add(t.id);
   }
 
-  const teamById = new Map(teams.map((t) => [t.id, t]));
-  const matchById = new Map(matches.map((m) => [m.id, m]));
-
   // The Players list: the ones this account added, plus their own player entry.
   for (const p of players) if (myPlayerIds.has(p.id) || created("players", p.id)) mine.players.add(p.id);
 
   // Visible = mine + what mine refers to (read-only context).
   for (const k of KINDS) for (const id of mine[k]) visible[k].add(id);
-  // Everyone signed in can look at every match and tournament (the "Other matches" / "Other tournaments" lists);
-  // viewing is read-only, and the teams and players they mention come along so names show.
+  // Everyone signed in can look at everything (the server lets them read it all): global search,
+  // other tournaments and team pages need it. Viewing is read-only - only `mine` lists and
+  // `canEditItem` decide what a person may change.
+  for (const p of players) visible.players.add(p.id);
+  for (const t of teams) visible.teams.add(t.id);
   for (const m of matches) visible.matches.add(m.id);
-  for (const t of tournaments) {
-    visible.tournaments.add(t.id);
-    for (const id of t.teamIds || []) if (teamById.has(id)) visible.teams.add(id);
-  }
-  for (const tid of mine.tournaments) {
-    const t = tournaments.find((x) => x.id === tid);
-    for (const id of (t && t.matchIds) || []) if (matchById.has(id)) visible.matches.add(id);
-    for (const id of (t && t.teamIds) || []) if (teamById.has(id)) visible.teams.add(id);
-  }
-  // Teammates are visible (read-only) so rosters and squads show names, but they are not in the Players list.
-  for (const id of mine.teams) for (const pid of (teamById.get(id) || {}).playerIds || []) visible.players.add(pid);
-  for (const id of visible.matches) {
-    const m = matchById.get(id);
-    if (!m) continue;
-    if (teamById.has(m.teamAId)) visible.teams.add(m.teamAId);
-    if (teamById.has(m.teamBId)) visible.teams.add(m.teamBId);
-  }
-  const known = new Set(players.map((p) => p.id));
-  for (const id of visible.matches) collectPlayerIds(matchById.get(id), known, visible.players);
-  for (const id of visible.teams) {
-    const t = teamById.get(id);
-    if (t && known.has(t.ownerId)) visible.players.add(t.ownerId);
-  }
+  for (const t of tournaments) visible.tournaments.add(t.id);
 
   return { all: false, isAdmin: false, me, mine, visible, captainMatches, myPlayerIds, created };
 }
@@ -176,17 +141,26 @@ export function guardAction(raw, access, user, action, { fingerprint, canDeleteM
     case "SET_TEAM_LOGO":
     case "UPDATE_TEAM":
       return can("teams", p.teamId) ? action : null;
-    case "SET_AVAILABILITY":
-      return can("players", p.playerId) ? action : null;
+    case "SET_AVAILABILITY": {
+      if (!can("players", p.playerId)) return null;
+      // Once a captain has confirmed the XI, a player in it cannot pull out himself; the captain changes the XI.
+      const m = (raw.matches || []).find((x) => x.id === p.matchId);
+      if (m && !can("matches", m.id) && !canChangeAnswer(m, p.playerId, p.status, false)) return null;
+      return action;
+    }
     case "RESPOND_JOIN_REQUEST":
       return can("teams", p.teamId) || isInvitee(raw, access, p.teamId, p.requestId) ? action : null;
     case "UPDATE_MATCH":
       return can("matches", p.matchId) ? action : null;
     case "DELETE_MATCH": {
       const m = (raw.matches || []).find((x) => x.id === p.matchId);
-      return m && canDeleteMatch(m, raw.players, user, matches) ? action : null;
+      // a captain may delete; so may the person who scheduled it (or an admin) while it has not started
+      return m && (canDeleteMatch(m, raw.players, user, matches) || (m.status === "scheduled" && can("matches", p.matchId))) ? action : null;
     }
     case "ATTACH_MATCH_TO_TOURNAMENT":
+    case "UPDATE_TOURNAMENT":
+    case "UPDATE_SPONSOR":
+    case "REMOVE_SPONSOR":
     case "ADD_SPONSOR_TO_TOURNAMENT":
       return can("tournaments", p.tournamentId) ? action : null;
     case "HYDRATE": {

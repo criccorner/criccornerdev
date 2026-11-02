@@ -1,3 +1,4 @@
+/* global navigator, window */
 import { baseUrl } from "../cloud/config";
 
 // Sign in with Google / Apple through Supabase. The phone opens the provider's page in the

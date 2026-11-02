@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { squadIds, keeperOf } from "../utils/squads";
+import FlashPressable from "../components/FlashPressable";
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Modal, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import SponsorBanner from "../components/SponsorBanner";
+import { matchPlace } from "../geo/cities";
 import ShotPicker from "../components/ShotPicker";
 import { recentOvers } from "../utils/overLine";
 import { shotLabel } from "../utils/shots";
@@ -339,7 +341,7 @@ export default function LiveScoringScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <SponsorBanner tournament={tournament} />
+      <SponsorBanner tournament={tournament} place={matchPlace(match, tournament)} />
 
       <ScrollView contentContainerStyle={{ padding: spacing.sm }}>
         <Card style={[styles.scoreCard, styles.tight]}>
@@ -419,9 +421,9 @@ export default function LiveScoringScreen({ route, navigation }) {
             {[[0, 1, 2], [3, 4, 6]].map((row) => (
               <View key={row.join("")} style={styles.runRow}>
                 {row.map((r) => (
-                  <Pressable key={r} onPress={() => score(r)} style={[styles.runButtonBig, (r === 4 || r === 6) && styles.boundaryButton]}>
-                    <Text style={[styles.runButtonBigText, (r === 4 || r === 6) && { color: "#fff" }]}>{r}</Text>
-                  </Pressable>
+                  <FlashPressable key={r} onPress={() => score(r)} style={[styles.runButtonBig, (r === 4 || r === 6) && styles.boundaryButton]}>
+                    {(lit) => <Text style={[styles.runButtonBigText, ((r === 4 || r === 6) || lit) && { color: "#fff" }]}>{r}</Text>}
+                  </FlashPressable>
                 ))}
               </View>
             ))}
@@ -649,7 +651,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Extras: choose how many runs */}
       <Modal visible={!!extraPicker} transparent animationType="slide" onRequestClose={() => setExtraPicker(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <ScrollView style={styles.modalSheet} contentContainerStyle={{ paddingBottom: spacing.md }} keyboardShouldPersistTaps="handled">
             {extraPicker ? (
               <>
                 <Text style={typography.h3}>{EXTRA_INFO[extraPicker].title}</Text>
@@ -669,12 +671,16 @@ export default function LiveScoringScreen({ route, navigation }) {
                   {extraOptions(extraPicker, nbRunType).map((n) => {
                     const penalty = EXTRA_INFO[extraPicker].penalty;
                     return (
-                      <Pressable key={n} onPress={() => commitExtra(n)} style={styles.extraChoice}>
-                        <Text style={styles.runButtonText}>{penalty ? `+${n}` : n}</Text>
-                        <Text style={styles.chipSub}>
-                          {n + penalty} {n + penalty === 1 ? "run" : "runs"} total
-                        </Text>
-                      </Pressable>
+                      <FlashPressable key={n} onPress={() => commitExtra(n)} style={styles.extraChoice}>
+                        {(lit) => (
+                          <>
+                            <Text style={[styles.runButtonText, lit && { color: "#fff" }]}>{penalty ? `+${n}` : n}</Text>
+                            <Text style={[styles.chipSub, lit && { color: "#fff" }]}>
+                              {n + penalty} {n + penalty === 1 ? "run" : "runs"} total
+                            </Text>
+                          </>
+                        )}
+                      </FlashPressable>
                     );
                   })}
                 </View>
@@ -682,7 +688,7 @@ export default function LiveScoringScreen({ route, navigation }) {
             ) : null}
             <View style={{ height: spacing.md }} />
             <Button title="Cancel" variant="outline" onPress={() => setExtraPicker(null)} />
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -803,17 +809,17 @@ function Row({ label, name, extra }) {
 
 function ExtraButton({ label, onPress }) {
   return (
-    <Pressable onPress={onPress} style={styles.extraButton}>
-      <Text style={styles.extraButtonText} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
-    </Pressable>
+    <FlashPressable onPress={onPress} style={styles.extraButton}>
+      {(lit) => <Text style={[styles.extraButtonText, lit && { color: "#fff" }]} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>}
+    </FlashPressable>
   );
 }
 
 function QuickButton({ label, onPress }) {
   return (
-    <Pressable onPress={onPress} style={styles.quickBtn}>
-      <Text style={styles.quickBtnText}>{label}</Text>
-    </Pressable>
+    <FlashPressable onPress={onPress} style={styles.quickBtn}>
+      {(lit) => <Text style={[styles.quickBtnText, lit && { color: "#fff" }]}>{label}</Text>}
+    </FlashPressable>
   );
 }
 
@@ -846,11 +852,11 @@ const styles = StyleSheet.create({
   runRow: { flexDirection: "row", gap: spacing.xs },
   runButtonBig: { flex: 1, height: 58, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   runButtonBigText: { fontSize: 26, fontWeight: "800", color: colors.text },
-  runGrid: { flexDirection: "row", gap: spacing.xs },
+  runGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   runButton: { flex: 1, height: 52, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   boundaryButton: { backgroundColor: colors.accent, borderColor: colors.accent },
   runButtonText: { fontSize: 22, fontWeight: "800", color: colors.text },
-  extraChoice: { width: "30%", paddingVertical: spacing.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  extraChoice: { width: "31%", minWidth: 84, paddingVertical: spacing.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   extrasRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm },
   extraButton: { flex: 1, borderWidth: 1, borderColor: colors.info, borderRadius: radius.pill, paddingHorizontal: 2, paddingVertical: 9, alignItems: "center", justifyContent: "center" },
   extraButtonText: { color: colors.info, fontWeight: "700", fontSize: 12 },

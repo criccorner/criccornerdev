@@ -12,6 +12,7 @@ import AdminFeedbackScreen from "../screens/admin/AdminFeedbackScreen";
 import AdminFeedbackDetailScreen from "../screens/admin/AdminFeedbackDetailScreen";
 import AdminUsersScreen from "../screens/admin/AdminUsersScreen";
 import AdminUserEditScreen from "../screens/admin/AdminUserEditScreen";
+import AdminSponsorsScreen from "../screens/admin/AdminSponsorsScreen";
 import DeleteAccountScreen from "../screens/profile/DeleteAccountScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
 import LegalScreen from "../screens/LegalScreen";
@@ -43,6 +44,7 @@ export default function ProfileStack() {
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} options={{ title: "Admin Panel" }} />
       <Stack.Screen name="AdminFeedback" component={AdminFeedbackScreen} options={{ title: "Issues & Suggestions" }} />
       <Stack.Screen name="AdminFeedbackDetail" component={AdminFeedbackDetailScreen} options={{ title: "Review" }} />
+      <Stack.Screen name="AdminSponsors" component={AdminSponsorsScreen} options={{ title: "App Sponsors" }} />
       <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: "Registered Users" }} />
       <Stack.Screen name="AdminUserEdit" component={AdminUserEditScreen} options={{ title: "Edit User" }} />
     </Stack.Navigator>

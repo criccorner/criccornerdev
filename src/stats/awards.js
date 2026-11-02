@@ -87,6 +87,20 @@ function allRoundText(l) {
   return parts.join(" · ");
 }
 
+// Everyone's MVP points for ONE finished match, best first: [{ playerId, points, text, teamId }].
+// teamId is the side he played for (null when it cannot be told).
+export function matchPlayerPoints(match, teams) {
+  if (!match || !match.innings1) return [];
+  const lines = matchLines(match);
+  const side = (id) => {
+    for (const tid of [match.teamAId, match.teamBId]) if (tid && squadIds(match, teams, tid).includes(id)) return tid;
+    return null;
+  };
+  return [...lines.entries()]
+    .map(([playerId, l]) => ({ playerId, points: pointsOf(l), text: allRoundText(l), teamId: side(playerId) }))
+    .sort((a, b) => b.points - a.points);
+}
+
 // Awards for one finished match. Each award: { playerId, text, points? } or null.
 // Player of the match: most points. Batter: most runs (fewer balls wins a tie).
 // Bowler: most wickets (fewer runs wins a tie); with no wickets, the most economical bowler.
@@ -107,7 +121,9 @@ export function matchAwards(match, teams) {
     if (winTeam) squadIds(match, teams, winTeam).forEach((id) => winnerIds.add(id));
   }
 
-  const pom = pick(entries.filter((e) => e.pts > 0), (a, b) => a.pts > b.pts || (a.pts === b.pts && winnerIds.has(a.id) && !winnerIds.has(b.id)));
+  // Player of the match comes from the WINNING side. With no winner (tie / no result) anyone qualifies.
+  const eligible = entries.filter((e) => e.pts > 0 && (!winnerIds.size || winnerIds.has(e.id)));
+  const pom = pick(eligible.length ? eligible : entries.filter((e) => e.pts > 0), (a, b) => a.pts > b.pts || (a.pts === b.pts && a.l.runs > b.l.runs));
   const bat = pick(entries.filter((e) => e.l.runs > 0), (a, b) => a.l.runs > b.l.runs || (a.l.runs === b.l.runs && a.l.balls < b.l.balls));
   let bowl = pick(entries.filter((e) => e.l.wickets > 0), (a, b) => a.l.wickets > b.l.wickets || (a.l.wickets === b.l.wickets && a.l.bRuns < b.l.bRuns));
   if (!bowl) bowl = pick(entries.filter((e) => e.l.bBalls >= 6), (a, b) => econ(a.l) < econ(b.l));

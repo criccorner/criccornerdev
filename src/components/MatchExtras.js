@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, Pressable, TextInput, Linking, Alert, StyleSheet } from "react-native";
 import Card from "./Card";
 import { colors, spacing, typography, radius } from "../utils/theme";
-import { matchAwards } from "../stats/awards";
+import { matchAwards, matchPlayerPoints, POINTS_TEXT } from "../stats/awards";
 import { squadIds } from "../utils/squads";
 import { STATUSES, statusInfo, availabilityOf, summarise } from "../utils/availability";
 import { checkHighlightUrl, HIGHLIGHT_KINDS, MAX_HIGHLIGHTS_PER_TEAM, platformOf } from "../utils/social";
@@ -31,6 +31,30 @@ export function AwardsCard({ match, teams, players, onPlayer }) {
             {w.text ? <Text style={styles.awardSub}>{w.text}</Text> : null}
           </View>
           {extra ? <Text style={styles.awardPts}>{extra}</Text> : null}
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+// Every player's MVP points for the finished match, best first, grouped by nothing - just a ranked list with his team.
+export function MvpCard({ match, teams, players, onPlayer }) {
+  const rows = matchPlayerPoints(match, teams);
+  if (!rows.length) return null;
+  const nameOf = (id) => (players.find((p) => p.id === id) || {}).name || "Unknown";
+  const teamName = (id) => (teams.find((t) => t.id === id) || {}).name || "";
+  return (
+    <Card>
+      <Text style={typography.label}>MVP POINTS</Text>
+      <Text style={styles.awardSub}>{POINTS_TEXT}</Text>
+      {rows.map((r, i) => (
+        <View key={r.playerId} style={styles.awardRow}>
+          <Text style={[styles.awardIcon, { fontSize: 14, width: 24 }]}>{i + 1}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.awardName, onPlayer && { color: colors.primary }]} onPress={onPlayer ? () => onPlayer(r.playerId) : undefined}>{nameOf(r.playerId)}</Text>
+            <Text style={styles.awardSub}>{[teamName(r.teamId), r.text].filter(Boolean).join(" · ")}</Text>
+          </View>
+          <Text style={styles.awardPts}>{r.points} pts</Text>
         </View>
       ))}
     </Card>

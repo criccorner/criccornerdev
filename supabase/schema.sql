@@ -6,7 +6,7 @@
 
 -- >>> 1. PUT YOUR ADMIN EMAIL(S) HERE (the email you will REGISTER with) <<<
 create table if not exists public.bootstrap_admins (email text primary key);
-insert into public.bootstrap_admins (email) values (lower('criccornerdevdb@gmail.com'))
+insert into public.bootstrap_admins (email) values (lower('YOUR_EMAIL_HERE@example.com'))
 on conflict do nothing;
 alter table public.bootstrap_admins enable row level security;  -- no policies: invisible through the app API
 
@@ -51,7 +51,12 @@ begin
   values (
     new.id,
     lower(new.email),
-    coalesce(new.raw_user_meta_data->>'name', ''),
+    coalesce(
+      nullif(trim(new.raw_user_meta_data->>'name'), ''),
+      nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+      nullif(trim(concat_ws(' ', new.raw_user_meta_data->>'given_name', new.raw_user_meta_data->>'family_name')), ''),
+      initcap(replace(split_part(lower(new.email), '@', 1), '.', ' '))
+    ),
     coalesce(nullif(new.raw_user_meta_data->>'role', ''), 'Batter'),
     nullif(new.raw_user_meta_data->>'phone', ''),
     boot, boot
@@ -119,7 +124,12 @@ language plpgsql security definer set search_path = public as $$
 begin
   new.updated_at := now();
   if tg_op = 'UPDATE' then
-    new.owner := old.owner;      -- ownership never changes
+    -- ownership never changes, except when an account is being deleted (delete_my_account sets this flag)
+    if coalesce(current_setting('app.releasing_owner', true), '') = '1' and new.owner is null then
+      null;
+    else
+      new.owner := old.owner;
+    end if;
     new.kind  := old.kind;
     new.id    := old.id;
   end if;
@@ -143,18 +153,66 @@ create policy docs_select on public.docs for select to authenticated
 create policy docs_insert on public.docs for insert to authenticated
   with check (public.is_active() and owner = auth.uid());
 
--- Only the owner or an admin can change an item, with two exceptions:
---  * teams: any member can respond to a join request, so teams are editable by any logged-in player
+-- Only the owner or an admin can change an item, with these exceptions:
+--  * teams: a player who has a pending invitation can answer it
 --  * players: the person whose email is on the player entry can edit it (their own profile)
+--  * matches: see docs_update_captain below (a match's captains)
+-- True when the logged-in account is the player named in a PENDING join request of this team.
+create or replace function public.is_invited_to_team(d jsonb) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+    from jsonb_array_elements(coalesce(d->'joinRequests', '[]'::jsonb)) r
+    join public.docs p on p.kind = 'players' and not p.deleted and p.id = r->>'playerId'
+    where r->>'status' = 'pending'
+      and (
+        (coalesce(p.data->>'email', '') <> ''
+          and lower(p.data->>'email') = lower(coalesce(auth.jwt()->>'email', '')))
+        or
+        (coalesce(p.data->>'phone', '') <> ''
+          and regexp_replace(p.data->>'phone', '[\s\-().]', '', 'g') =
+              (select regexp_replace(coalesce(pr.phone, ''), '[\s\-().]', '', 'g') from public.profiles pr where pr.id = auth.uid()))
+      )
+  );
+$$;
+revoke all on function public.is_invited_to_team(jsonb) from public, anon;
+grant execute on function public.is_invited_to_team(jsonb) to authenticated;
+
 create policy docs_update on public.docs for update to authenticated
   using (
     public.is_active() and (
       owner = auth.uid()
       or public.is_admin()
-      or kind = 'teams'
+      or (kind = 'teams' and public.is_invited_to_team(data))
       or (kind = 'players' and lower(coalesce(data->>'email','')) = lower(coalesce(auth.jwt()->>'email','')))
     )
   )
+  with check (public.is_active());
+
+-- Captains of a match can update (and delete) that match.
+create or replace function public.is_match_captain(d jsonb) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+    from public.docs p
+    where p.kind = 'players' and not p.deleted
+      and p.id in (coalesce(d->>'captainA', ''), coalesce(d->>'captainB', ''))
+      and (
+        (coalesce(p.data->>'email', '') <> ''
+          and lower(p.data->>'email') = lower(coalesce(auth.jwt()->>'email', '')))
+        or
+        (coalesce(p.data->>'phone', '') <> ''
+          and regexp_replace(p.data->>'phone', '[\s\-().]', '', 'g') =
+              (select regexp_replace(coalesce(pr.phone, ''), '[\s\-().]', '', 'g') from public.profiles pr where pr.id = auth.uid()))
+      )
+  );
+$$;
+revoke all on function public.is_match_captain(jsonb) from public, anon;
+grant execute on function public.is_match_captain(jsonb) to authenticated;
+
+drop policy if exists docs_update_captain on public.docs;
+create policy docs_update_captain on public.docs for update to authenticated
+  using (public.is_active() and kind = 'matches' and public.is_match_captain(data))
   with check (public.is_active());
 
 -- ---------------------------------------------------------------------
@@ -206,3 +264,103 @@ create policy avatars_delete on storage.objects for delete to authenticated
 
 -- Done. If you registered BEFORE adding your email at the top, run this once:
 --   update public.profiles set is_admin = true, is_primary = true where email = lower('YOUR_EMAIL_HERE@example.com');
+
+-- ---------------------------------------------------------------------
+-- Team invite links (see team_invite_link.sql)
+-- ---------------------------------------------------------------------
+create or replace function public.join_team_by_invite(p_team text, p_code text, p_player text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  t public.docs%rowtype;
+  pl public.docs%rowtype;
+  mine boolean;
+begin
+  if not public.is_active() then
+    raise exception 'Your account is not active.' using errcode = '42501';
+  end if;
+
+  select * into t from public.docs where kind = 'teams' and id = p_team and not deleted for update;
+  if not found then
+    raise exception 'That team no longer exists.' using errcode = 'P0002';
+  end if;
+  if coalesce(t.data->>'inviteCode', '') = '' or t.data->>'inviteCode' <> coalesce(p_code, '') then
+    raise exception 'This invite link is no longer valid. Ask the captain for a new one.' using errcode = '42501';
+  end if;
+
+  select * into pl from public.docs where kind = 'players' and id = p_player and not deleted;
+  if not found then
+    raise exception 'Your player entry has not been saved yet. Try again in a moment.' using errcode = 'P0002';
+  end if;
+
+  mine := pl.owner = auth.uid()
+    or (coalesce(pl.data->>'email', '') <> '' and lower(pl.data->>'email') = lower(coalesce(auth.jwt()->>'email', '')))
+    or (coalesce(pl.data->>'phone', '') <> ''
+        and regexp_replace(pl.data->>'phone', '[\s\-().]', '', 'g') =
+            (select regexp_replace(coalesce(pr.phone, ''), '[\s\-().]', '', 'g') from public.profiles pr where pr.id = auth.uid()));
+  if not mine then
+    raise exception 'That player entry is not yours.' using errcode = '42501';
+  end if;
+
+  if (coalesce(t.data->'playerIds', '[]'::jsonb)) ? p_player then
+    return t.data;  -- already in the team
+  end if;
+
+  update public.docs
+     set data = jsonb_set(data, '{playerIds}', coalesce(data->'playerIds', '[]'::jsonb) || to_jsonb(p_player), true)
+   where kind = 'teams' and id = p_team
+   returning data into t.data;
+  return t.data;
+end $$;
+
+revoke all on function public.join_team_by_invite(text, text, text) from public, anon;
+grant execute on function public.join_team_by_invite(text, text, text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Delete my account (see delete_account.sql)
+-- ---------------------------------------------------------------------
+create or replace function public.delete_my_account()
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  me uuid := auth.uid();
+  prof public.profiles%rowtype;
+  ph text;
+begin
+  if me is null then
+    raise exception 'Please log in again.' using errcode = '42501';
+  end if;
+  select * into prof from public.profiles where id = me;
+  if found and prof.is_primary then
+    raise exception 'The main administrator account cannot be deleted. Make another person the administrator first.' using errcode = '42501';
+  end if;
+
+  ph := regexp_replace(coalesce(prof.phone, ''), '[\s\-().]', '', 'g');
+
+  -- the person's own player entries (same email, same mobile, or the one they created for themselves)
+  update public.docs d
+     set data = (d.data - 'email' - 'phone' - 'photoUrl' - 'availability' - 'city' - 'battingStyle' - 'bowlingStyle')
+                || jsonb_build_object('name', 'Deleted player', 'deletedAccount', true),
+         updated_at = now()
+   where d.kind = 'players'
+     and not d.deleted
+     and (
+       (coalesce(prof.email, '') <> '' and lower(coalesce(d.data->>'email', '')) = lower(prof.email))
+       or (ph <> '' and regexp_replace(coalesce(d.data->>'phone', ''), '[\s\-().]', '', 'g') = ph)
+     );
+
+  update public.feedback
+     set user_name = 'Deleted user', user_contact = null, updated_at = now()
+   where user_id = me;
+
+  -- hand the shared items they created over to "nobody" (admins can still manage them)
+  perform set_config('app.releasing_owner', '1', true);
+  update public.docs set owner = null where owner = me;
+  perform set_config('app.releasing_owner', '', true);
+
+  delete from auth.users where id = me;  -- cascades to profiles
+  return jsonb_build_object('deleted', true);
+end $$;
+
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;

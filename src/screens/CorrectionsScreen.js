@@ -7,12 +7,12 @@ import Button from "../components/Button";
 import FormField from "../components/FormField";
 import { squadIds, keeperOf, roleTag } from "../utils/squads";
 import {
-  replacePlayer, replacementCandidates, sideOfPlayer,
+  replacePlayer, swapPlayers, replacementCandidates, sideOfPlayer,
   wicketsOf, allowedDismissals, needsFielder, canHaveFielder, changeDismissal,
   oversOf, validateOverBowler, changeOverBowler, bowlersUsed, replaceBowler,
 } from "../utils/corrections";
 
-const TABS = [["player", "Replace player"], ["wicket", "Wickets"], ["bowler", "Bowlers"]];
+const TABS = [["player", "Replace player"], ["swap", "Swap players"], ["wicket", "Wickets"], ["bowler", "Bowlers"]];
 
 function Chip({ label, sub, active, disabled, onPress }) {
   return (
@@ -69,6 +69,8 @@ export default function CorrectionsScreen({ route }) {
 
         {tab === "player" ? (
           <ReplaceTab {...{ match, teams, players, sides, access, tagged, nameOf, teamOfSide, save }} />
+        ) : tab === "swap" ? (
+          <SwapTab {...{ match, teams, sides, tagged, nameOf, teamOfSide, save }} />
         ) : (
           <>
             {match.innings1 && match.innings2 ? (
@@ -89,6 +91,63 @@ export default function CorrectionsScreen({ route }) {
         )}
       </ScrollView>
     </View>
+  );
+}
+
+function SwapTab({ match, teams, sides, tagged, nameOf, teamOfSide, save }) {
+  const [picked, setPicked] = useState([]); // up to two ids, same squad
+  const [parts, setParts] = useState("both"); // "batting" | "bowling" | "both"
+  const [error, setError] = useState("");
+  const squads = sides.map((s) => ({ side: s, team: teamOfSide(s), ids: squadIds(match, teams, s === "A" ? match.teamAId : match.teamBId) }));
+  const pickedSide = picked.length ? sideOfPlayer(match, picked[0], teams) : null;
+
+  const toggle = (id, side) => {
+    setError("");
+    if (picked.includes(id)) return setPicked(picked.filter((x) => x !== id));
+    if (pickedSide && side !== pickedSide) return setPicked([id]); // other team: start again
+    setPicked(picked.length >= 2 ? [picked[1], id] : [...picked, id]);
+  };
+  const apply = () => {
+    const r = swapPlayers(match, picked[0], picked[1], teams, parts);
+    if (r.error) return setError(r.error);
+    save(r.changes, `${nameOf(picked[0])} and ${nameOf(picked[1])} have swapped their ${parts === "both" ? "batting and bowling" : parts} in the scorecard.`);
+    setPicked([]);
+  };
+
+  return (
+    <>
+      <Card>
+        <Text style={typography.h3}>Swap two players of the same team</Text>
+        <Text style={[typography.muted, { marginTop: 2 }]}>
+          Pick two players from the same squad. Choose what to exchange: their batting (runs, balls, how out), their bowling (overs, runs, wickets), or both. Captain, wicketkeeper and catches do not move.
+        </Text>
+        {squads.map((s) => (
+          <View key={s.side} style={{ marginTop: spacing.sm }}>
+            <Text style={typography.label}>{(s.team ? s.team.name : `Team ${s.side}`).toUpperCase()}</Text>
+            <View style={styles.chipRow}>
+              {s.ids.map((id) => (
+                <Chip key={id} label={tagged(id)} active={picked.includes(id)} onPress={() => toggle(id, s.side)} />
+              ))}
+            </View>
+          </View>
+        ))}
+      </Card>
+      {picked.length === 2 ? (
+        <Card>
+          <Text style={typography.body}>{nameOf(picked[0])} ⇄ {nameOf(picked[1])}</Text>
+          <Text style={[typography.label, { marginTop: spacing.sm }]}>SWAP THEIR</Text>
+          <View style={styles.chipRow}>
+            {[["batting", "Batting"], ["bowling", "Bowling"], ["both", "Both"]].map(([k, label]) => (
+              <Chip key={k} label={label} active={parts === k} onPress={() => setParts(k)} />
+            ))}
+          </View>
+          {error ? <Text style={{ color: colors.danger, marginTop: spacing.sm }}>{error}</Text> : null}
+          <Button title={`Swap ${parts === "both" ? "batting and bowling" : parts}`} onPress={apply} style={{ marginTop: spacing.sm }} />
+        </Card>
+      ) : (
+        <Text style={[typography.muted, { marginTop: spacing.sm }]}>{picked.length === 1 ? `Now pick the second player (with ${nameOf(picked[0])}).` : "Pick the first player."}</Text>
+      )}
+    </>
   );
 }
 

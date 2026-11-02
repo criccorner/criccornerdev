@@ -5,6 +5,7 @@ import { newId } from "../utils/id";
 import { validateFormat, splitIntoGroups, nextPow2 } from "../tournament/fixtures";
 import { setTournamentFormat, canRegenerate } from "../tournament/actions";
 import FormField from "../components/FormField";
+import CityPicker from "../components/CityPicker";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import { colors, spacing, typography, radius } from "../utils/theme";
@@ -72,6 +73,8 @@ export default function CreateTournamentScreen({ navigation, route }) {
   const [venue, setVenue] = useState(f0.venue || "");
   const [shuffle, setShuffle] = useState(f0.shuffle !== undefined ? f0.shuffle : true);
   const [teamIds, setTeamIds] = useState(existing?.teamIds || []);
+  const [place, setPlace] = useState(null); // the real city, picked from the list
+  const [contact, setContact] = useState("");
   const [error, setError] = useState("");
 
   const toggleTeam = (id) => setTeamIds(teamIds.includes(id) ? teamIds.filter((x) => x !== id) : [...teamIds, id]);
@@ -98,7 +101,7 @@ export default function CreateTournamentScreen({ navigation, route }) {
       id = newId("tourn");
       state = {
         matches,
-        tournaments: [...tournaments, { id, name: name.trim(), startDate: format.startDate, endDate: endDate.trim() || null, sponsors: [], matchIds: [], ...(organizerId ? { organizerId } : {}) }],
+        tournaments: [...tournaments, { id, name: name.trim(), startDate: format.startDate, endDate: endDate.trim() || null, sponsors: [], matchIds: [], createdAt: new Date().toISOString(), city: place.name, cityLabel: place.label, cityLat: place.lat, cityLng: place.lng, contact: contact.trim() || null, ...(organizerId ? { organizerId } : {}) }],
       };
     }
     const res = setTournamentFormat(state, id, format, teamIds, { idGen });
@@ -115,6 +118,10 @@ export default function CreateTournamentScreen({ navigation, route }) {
     setError("");
     if (!editingId && !name.trim()) {
       setError("Tournament name is required.");
+      return;
+    }
+    if (!editingId && !place) {
+      setError("Please pick the tournament's city from the list. Only real cities can be used, so people nearby can find it.");
       return;
     }
     const err = validateFormat(build(), teamIds);
@@ -154,6 +161,8 @@ export default function CreateTournamentScreen({ navigation, route }) {
           <>
             <FormField label="Tournament Name" value={name} onChangeText={setName} placeholder="e.g. City Premier League 2026" />
             <FormField label="End Date (optional, YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} />
+            <CityPicker label="City" value={place} onChange={setPlace} />
+            <FormField label="Contact for people who want to join (optional)" value={contact} onChangeText={setContact} placeholder="Phone, email or WhatsApp" autoCapitalize="none" />
           </>
         ) : (
           <Text style={[typography.h2, { marginBottom: spacing.md }]}>{existing?.name}</Text>

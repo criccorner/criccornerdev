@@ -9,10 +9,12 @@ import { colors, spacing, typography, radius } from "../utils/theme";
 import { stageTag } from "../utils/stages";
 import Card from "../components/Card";
 import SponsorBanner from "../components/SponsorBanner";
+import { matchPlace } from "../geo/cities";
+import { newId } from "../utils/id";
 import { buildScorecard, dismissalText } from "../utils/scorecard";
 import WagonWheel from "../components/WagonWheel";
 import { wheelSummary, shotByKey } from "../utils/shots";
-import { AwardsCard, HighlightsCard, AvailabilityCard } from "../components/MatchExtras";
+import { MvpCard, AwardsCard, HighlightsCard, AvailabilityCard } from "../components/MatchExtras";
 
 const f1 = (n) => (Number.isFinite(n) ? n.toFixed(1) : "0.0");
 const f2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
@@ -192,6 +194,19 @@ function InningsView({ innings, number, match, teams, players, onPlayer }) {
   );
 }
 
+// Which side is batting and which is bowling, so anyone watching knows at a glance.
+function BattingBowling({ innings, live, teams }) {
+  if (!innings) return null;
+  const bat = (teams.find((t) => t.id === innings.battingTeamId) || {}).name || "Batting side";
+  const bowl = (teams.find((t) => t.id === innings.bowlingTeamId) || {}).name || "Bowling side";
+  return (
+    <Card style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <Text style={{ flex: 1, color: colors.text, fontWeight: "800" }} numberOfLines={2}>🏏 {bat} {live ? "batting" : "batted"}</Text>
+      <Text style={{ flex: 1, textAlign: "right", color: colors.text, fontWeight: "800" }} numberOfLines={2}>🎯 {bowl} {live ? "bowling" : "bowled"}</Text>
+    </Card>
+  );
+}
+
 export default function ScorecardScreen({ route }) {
   const { matchId } = route.params;
   const { matches, teams, players, tournaments } = useAppState();
@@ -238,11 +253,12 @@ export default function ScorecardScreen({ route }) {
     ]);
   };
 
+  const mayDelete = access.canDeleteMatch(match) || (match.status === "scheduled" && access.canEdit("matches", match.id));
   const statusLabel = match.status === "live" ? "🔴 LIVE" : match.status === "completed" ? "✅ COMPLETED" : "🗓️ SCHEDULED";
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <SponsorBanner tournament={tournament} />
+      <SponsorBanner tournament={tournament} place={matchPlace(match, tournament)} />
       <ScrollView contentContainerStyle={{ padding: spacing.md }}>
         <Card style={{ alignItems: "center" }}>
           <Text style={styles.status}>{statusLabel}</Text>
@@ -262,6 +278,12 @@ export default function ScorecardScreen({ route }) {
         </Card>
 
         {match.status === "scheduled" ? (
+          <Pressable onPress={() => navigation.navigate("Attendance", { matchId: match.id })} style={styles.editBtn}>
+            <Text style={styles.editText}>📋 Attendance and final XI</Text>
+          </Pressable>
+        ) : null}
+
+        {match.status === "scheduled" ? (
           <AvailabilityCard
             match={match}
             teams={teams}
@@ -273,6 +295,7 @@ export default function ScorecardScreen({ route }) {
         ) : null}
 
         {match.status === "completed" ? <AwardsCard match={match} teams={teams} players={players} onPlayer={(playerId) => navigation.navigate("PlayerStats", { playerId })} /> : null}
+        {match.status === "completed" ? <MvpCard match={match} teams={teams} players={players} onPlayer={(playerId) => navigation.navigate("PlayerStats", { playerId })} /> : null}
 
         {match.status !== "scheduled" ? (
           <HighlightsCard
@@ -309,6 +332,7 @@ export default function ScorecardScreen({ route }) {
                 })}
               </View>
             ) : null}
+            <BattingBowling innings={innings} live={match.status === "live" && active === match.currentInnings} teams={teams} />
             <InningsView innings={innings} number={active} match={match} teams={teams} players={players} onPlayer={(playerId) => navigation.navigate("PlayerStats", { playerId })} />
           </>
         )}
@@ -318,6 +342,17 @@ export default function ScorecardScreen({ route }) {
             <Text style={styles.editText}>✏️ Edit match details</Text>
           </Pressable>
         ) : null}
+
+        <Pressable
+          onPress={() => {
+            const id = newId("match");
+            dispatch({ type: "CLONE_MATCH", payload: { matchId: match.id, newId: id } });
+            navigation.navigate("EditMatch", { matchId: id });
+          }}
+          style={styles.editBtn}
+        >
+          <Text style={styles.editText}>⧉ Clone this match</Text>
+        </Pressable>
 
         {match.innings1 && access.correctionSides(match).length ? (
           <Pressable onPress={() => navigation.navigate("Corrections", { matchId: match.id })} style={styles.editBtn}>
@@ -331,13 +366,13 @@ export default function ScorecardScreen({ route }) {
           </Pressable>
         ) : null}
 
-        {access.canDeleteMatch(match) ? (
+        {mayDelete ? (
           <Pressable onPress={confirmDelete} style={styles.deleteBtn}>
             <Text style={styles.deleteText}>Delete match</Text>
           </Pressable>
         ) : null}
-        {access.canDeleteMatch(match) ? (
-          <Text style={[typography.muted, { textAlign: "center", marginBottom: spacing.lg }]}>Only a team captain can delete a match.</Text>
+        {mayDelete ? (
+          <Text style={[typography.muted, { textAlign: "center", marginBottom: spacing.lg }]}>Only a team captain (or the person who scheduled it, before it starts) can delete a match.</Text>
         ) : null}
       </ScrollView>
     </View>

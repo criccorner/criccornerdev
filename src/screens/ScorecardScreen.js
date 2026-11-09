@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ShareButton from "../share/ShareButton";
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { roleTag } from "../utils/squads";
@@ -12,6 +13,7 @@ import SponsorBanner from "../components/SponsorBanner";
 import { matchPlace } from "../geo/cities";
 import { newId } from "../utils/id";
 import { buildScorecard, dismissalText } from "../utils/scorecard";
+import { undoLastBall } from "../utils/cricketEngine";
 import WagonWheel from "../components/WagonWheel";
 import { wheelSummary, shotByKey } from "../utils/shots";
 import { MvpCard, AwardsCard, HighlightsCard, AvailabilityCard } from "../components/MatchExtras";
@@ -253,6 +255,31 @@ export default function ScorecardScreen({ route }) {
     ]);
   };
 
+  // Undo the last ball of a finished match and carry on scoring (the result is cleared until it ends again).
+  const reopenMatch = () => {
+    const has2 = match.innings2 && (match.innings2.balls || []).length > 0;
+    Alert.alert(
+      "Undo the last ball?",
+      "The result will be cleared and the match goes back to live scoring with the last ball removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Undo and reopen",
+          onPress: () => {
+            const changes = has2
+              ? { innings2: undoLastBall(match.innings2), currentInnings: 2 }
+              : match.innings2
+                ? { innings2: null, currentInnings: 1, innings1: undoLastBall(match.innings1) }
+                : { currentInnings: 1, innings1: undoLastBall(match.innings1) };
+            dispatch({ type: "UPDATE_MATCH", payload: { matchId: match.id, changes: { ...changes, status: "live", result: null } } });
+            navigation.navigate("LiveScoring", { matchId: match.id });
+          },
+        },
+      ]
+    );
+  };
+  const canReopen = match.status === "completed" && match.innings1 && access.canEdit("matches", match.id);
+
   const mayDelete = access.canDeleteMatch(match) || (match.status === "scheduled" && access.canEdit("matches", match.id));
   const statusLabel = match.status === "live" ? "🔴 LIVE" : match.status === "completed" ? "✅ COMPLETED" : "🗓️ SCHEDULED";
 
@@ -260,6 +287,7 @@ export default function ScorecardScreen({ route }) {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <SponsorBanner tournament={tournament} place={matchPlace(match, tournament)} />
       <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+        <ShareButton kind="match" id={match.id} name={`${(teams.find((t) => t.id === match.teamAId) || {}).name || "Team A"} vs ${(teams.find((t) => t.id === match.teamBId) || {}).name || "Team B"}`} label="🔗 Share this match" style={{ alignSelf: "flex-start", marginBottom: spacing.sm }} />
         <Card style={{ alignItems: "center" }}>
           <Text style={styles.status}>{statusLabel}</Text>
           {stageTag(match) ? <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 12, marginBottom: 2 }}>{stageTag(match).toUpperCase()}</Text> : null}
@@ -357,6 +385,12 @@ export default function ScorecardScreen({ route }) {
         {match.innings1 && access.correctionSides(match).length ? (
           <Pressable onPress={() => navigation.navigate("Corrections", { matchId: match.id })} style={styles.editBtn}>
             <Text style={styles.editText}>🛠️ Captain corrections</Text>
+          </Pressable>
+        ) : null}
+
+        {canReopen ? (
+          <Pressable onPress={reopenMatch} style={styles.editBtn}>
+            <Text style={styles.editText}>↩️ Undo last ball and reopen scoring</Text>
           </Pressable>
         ) : null}
 

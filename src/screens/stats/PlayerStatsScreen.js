@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import ShareButton from "../../share/ShareButton";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useAppState, useAllState, useAccess } from "../../context/AppContext";
 import { useAuth } from "../../auth/AuthContext";
@@ -65,6 +66,7 @@ export default function PlayerStatsScreen({ route, navigation }) {
         </View>
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+        <ShareButton kind="player" id={player.id} name={player.name} label="🔗 Share this player" style={{ alignSelf: "flex-start", marginBottom: spacing.sm }} />
         <Card>
           <Text style={typography.label}>TEAMS</Text>
           {info.teams.length ? (

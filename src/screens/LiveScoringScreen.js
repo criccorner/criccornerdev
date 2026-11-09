@@ -20,6 +20,7 @@ import {
   setKeeper,
   bowlerOptions,
   swapStrike,
+  changeBatter,
   needsNewBowler,
   describeEntry,
   DISMISSAL_TYPES,
@@ -60,6 +61,12 @@ export default function LiveScoringScreen({ route, navigation }) {
   const [dismissalType, setDismissalType] = useState(null);
   const [newBatsmanId, setNewBatsmanId] = useState(null);
   const [fielderId, setFielderId] = useState(null);
+  const [fielder2Id, setFielder2Id] = useState(null); // second player in a run-out (optional)
+  const [dismissedWho, setDismissedWho] = useState("striker"); // run-out: "striker" or "nonStriker"
+  const [roRuns, setRoRuns] = useState(0); // runs completed before the run-out
+  const [batterOpen, setBatterOpen] = useState(false);
+  const [cbRole, setCbRole] = useState("striker");
+  const [cbNew, setCbNew] = useState(null);
   const [keeperModal, setKeeperModal] = useState(false);
   const [changeBowlerOpen, setChangeBowlerOpen] = useState(false);
   const [pendingBowlerId, setPendingBowlerId] = useState(null);
@@ -233,12 +240,16 @@ export default function LiveScoringScreen({ route, navigation }) {
     setDismissalType(null);
     setNewBatsmanId(null);
     setFielderId(null);
+    setFielder2Id(null);
+    setDismissedWho("striker");
+    setRoRuns(0);
     setWicketModal(true);
   };
 
   // Choosing "Stumped" pre-selects the wicketkeeper (if one is set).
   const chooseDismissal = (d) => {
     setDismissalType(d);
+    setFielder2Id(null);
     setFielderId(d === "Stumped" && innings.keeperId ? innings.keeperId : null);
   };
 
@@ -253,12 +264,15 @@ export default function LiveScoringScreen({ route, navigation }) {
       return;
     }
     setUndoNote(null);
+    const runOut = dismissalType === "Run Out";
     const updated = updateInnings((inn) =>
       recordBall(inn, {
-        runs: 0,
+        runs: runOut ? roRuns : 0,
         isWicket: true,
         dismissalType,
+        dismissedId: runOut ? (dismissedWho === "nonStriker" ? summary.nonStriker : summary.striker) : null,
         fielderId: FIELDER_PROMPT[dismissalType] ? fielderId : null,
+        fielder2Id: runOut && fielderId && fielder2Id && fielder2Id !== fielderId ? fielder2Id : null,
         newBatsmanId: needsNewBatsman ? newBatsmanId : null,
       })
     );
@@ -302,9 +316,35 @@ export default function LiveScoringScreen({ route, navigation }) {
     updateInnings((inn) => swapStrike(inn, reason));
   };
 
+  // ---- Batter: put a different batter at the crease (wrong batter picked) ----
+  const openChangeBatter = () => {
+    setCbRole("striker");
+    setCbNew(null);
+    setBatterOpen(true);
+  };
+  const confirmBatter = () => {
+    if (!cbNew) {
+      Alert.alert("Select the batter who should be at the crease");
+      return;
+    }
+    setBatterOpen(false);
+    setUndoNote(null);
+    updateInnings((inn) => changeBatter(inn, cbRole, cbNew, ""));
+  };
+  // anyone in the batting squad who is not out and not at the other end
+  const batterChoices = battingRoster.filter(
+    (p) => !summary.batsmenStats[p.id]?.out && p.id !== (cbRole === "striker" ? summary.nonStriker : summary.striker) && p.id !== (cbRole === "striker" ? summary.striker : summary.nonStriker)
+  );
+
   // ---- Undo ----
   const undo = () => {
     const last = innings.balls[innings.balls.length - 1];
+    if (!last && match.currentInnings === 2) {
+      // nothing bowled yet in innings 2: go back to the end of innings 1 (where Undo can take its last ball back)
+      dispatch({ type: "UPDATE_MATCH", payload: { matchId, changes: { currentInnings: 1, innings2: null } } });
+      setUndoNote("start of innings 2");
+      return;
+    }
     if (!last) {
       Alert.alert("Nothing to undo");
       return;
@@ -370,6 +410,7 @@ export default function LiveScoringScreen({ route, navigation }) {
           <View style={styles.quickRow}>
             <QuickButton label="⇄ Change Strike" onPress={openChangeStrike} />
             <QuickButton label="🎯 Change Bowler" onPress={openChangeBowler} />
+            <QuickButton label="🏏 Change Batter" onPress={openChangeBatter} />
             {access.correctionSides(match).length ? (
               <QuickButton label="🛠 Fix an over" onPress={() => navigation.navigate("Corrections", { matchId, tab: "bowler", innings: match.currentInnings })} />
             ) : null}
@@ -449,7 +490,7 @@ export default function LiveScoringScreen({ route, navigation }) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalSheet}>
             <ScrollView>
-              <Text style={typography.h3}>How was {strikerName} out?</Text>
+              <Text style={typography.h3}>{dismissalType === "Run Out" ? "Run out" : `How was ${strikerName} out?`}</Text>
               <View style={styles.chipRow}>
                 {DISMISSAL_TYPES.map((d) => (
                   <Pressable key={d} onPress={() => chooseDismissal(d)} style={[styles.chip, dismissalType === d && styles.chipActive]}>
@@ -458,7 +499,43 @@ export default function LiveScoringScreen({ route, navigation }) {
                 ))}
               </View>
 
-              {FIELDER_PROMPT[dismissalType] ? (
+              {dismissalType === "Run Out" ? (
+                <>
+                  <Text style={[typography.h3, { marginTop: spacing.md }]}>Who was run out?</Text>
+                  <View style={styles.chipRow}>
+                    {[["striker", `${strikerName} (striker)`], ["nonStriker", `${nonStrikerName} (non-striker)`]].map(([k, label]) => (
+                      <Pressable key={k} onPress={() => setDismissedWho(k)} style={[styles.chip, dismissedWho === k && styles.chipActive]}>
+                        <Text style={[styles.chipText, dismissedWho === k && { color: "#fff" }]}>{label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={[typography.h3, { marginTop: spacing.md }]}>Runs completed before the run out</Text>
+                  <View style={styles.chipRow}>
+                    {[0, 1, 2, 3].map((n) => (
+                      <Pressable key={n} onPress={() => setRoRuns(n)} style={[styles.chip, roRuns === n && styles.chipActive]}>
+                        <Text style={[styles.chipText, roRuns === n && { color: "#fff" }]}>{n}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={[typography.h3, { marginTop: spacing.md }]}>Run out by: Player 1 (optional)</Text>
+                  <View style={styles.chipRow}>
+                    {bowlingRoster.map((p) => (
+                      <Pressable key={p.id} onPress={() => { setFielderId(fielderId === p.id ? null : p.id); if (fielder2Id === p.id) setFielder2Id(null); }} style={[styles.chip, fielderId === p.id && styles.chipActive]}>
+                        <Text style={[styles.chipText, fielderId === p.id && { color: "#fff" }]}>{p.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={[typography.h3, { marginTop: spacing.md }]}>Player 2 (optional)</Text>
+                  <View style={styles.chipRow}>
+                    {bowlingRoster.filter((p) => p.id !== fielderId).map((p) => (
+                      <Pressable key={p.id} disabled={!fielderId} onPress={() => setFielder2Id(fielder2Id === p.id ? null : p.id)} style={[styles.chip, fielder2Id === p.id && styles.chipActive, !fielderId && styles.chipDisabled]}>
+                        <Text style={[styles.chipText, fielder2Id === p.id && { color: "#fff" }]}>{p.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {!fielderId ? <Text style={[typography.muted, { marginTop: spacing.xs }]}>Choose Player 1 first to add a second player.</Text> : null}
+                </>
+              ) : FIELDER_PROMPT[dismissalType] ? (
                 <>
                   <Text style={[typography.h3, { marginTop: spacing.md }]}>{FIELDER_PROMPT[dismissalType]}</Text>
                   <View style={styles.chipRow}>
@@ -492,6 +569,42 @@ export default function LiveScoringScreen({ route, navigation }) {
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <Button title="Cancel" variant="outline" onPress={() => setWicketModal(false)} style={{ flex: 1 }} />
                 <Button title="Confirm Out" variant="danger" onPress={confirmWicket} style={{ flex: 1 }} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change batter */}
+      <Modal visible={batterOpen} transparent animationType="slide" onRequestClose={() => setBatterOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <ScrollView>
+              <Text style={typography.h3}>Change batter</Text>
+              <Text style={typography.muted}>Use this when the wrong batter was picked. The batter you replace is not out and keeps his runs.</Text>
+
+              <Text style={[typography.label, { marginTop: spacing.md }]}>WHO IS BEING REPLACED?</Text>
+              <View style={styles.chipRow}>
+                {[["striker", `${strikerName} (striker)`], ["nonStriker", `${nonStrikerName} (non-striker)`]].map(([k, label]) => (
+                  <Pressable key={k} onPress={() => { setCbRole(k); setCbNew(null); }} style={[styles.chip, cbRole === k && styles.chipActive]}>
+                    <Text style={[styles.chipText, cbRole === k && { color: "#fff" }]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[typography.label, { marginTop: spacing.md }]}>NEW BATTER</Text>
+              <View style={styles.chipRow}>
+                {batterChoices.map((p) => (
+                  <Pressable key={p.id} onPress={() => setCbNew(p.id)} style={[styles.chip, cbNew === p.id && styles.chipActive]}>
+                    <Text style={[styles.chipText, cbNew === p.id && { color: "#fff" }]}>{p.name}</Text>
+                  </Pressable>
+                ))}
+                {batterChoices.length === 0 ? <Text style={typography.muted}>No other batter is available.</Text> : null}
+              </View>
+
+              <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
+                <Button title="Cancel" variant="outline" onPress={() => setBatterOpen(false)} style={{ flex: 1 }} />
+                <Button title="Change batter" onPress={confirmBatter} style={{ flex: 1 }} />
               </View>
             </ScrollView>
           </View>

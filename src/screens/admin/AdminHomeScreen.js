@@ -63,6 +63,7 @@ export default function AdminHomeScreen({ navigation }) {
           <Row label="💬 Issues & Suggestions" hint="Review, set status, and reply" onPress={() => navigation.navigate("AdminFeedback")} />
           <Row label="📣 App sponsors" hint="Add sponsors shown on matches in a city" onPress={() => navigation.navigate("AdminSponsors")} />
           <Row label="👥 Registered Users" hint="View, edit, make admin, or block" onPress={() => navigation.navigate("AdminUsers")} />
+          <Row label="🕒 Login & activity log" hint="Who logged in and what they did, by date" onPress={() => navigation.navigate("AdminActivity")} />
         </Card>
       </View>
     </AdminGuard>

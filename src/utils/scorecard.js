@@ -53,6 +53,12 @@ export function buildScorecard(innings) {
       continue;
     }
     if (ball.type === "bowler") continue; // bowler choices don't change the score
+    if (ball.type === "batter") {
+      if (ball.role === "nonStriker") nonStriker = ball.inId;
+      else striker = ball.inId;
+      bat(ball.inId);
+      continue;
+    }
 
     const wide = ball.extraType === "wide";
     const noBall = ball.extraType === "noball";
@@ -125,8 +131,9 @@ export function buildScorecard(innings) {
       legal: isLegal,
       isWicket: !!ball.isWicket,
       dismissalType: ball.dismissalType || null,
-      outId: ball.isWicket ? striker : null,
+      outId: ball.isWicket ? (ball.dismissedId && (ball.dismissedId === striker || ball.dismissedId === nonStriker) ? ball.dismissedId : striker) : null,
       fielderId: ball.isWicket ? ball.fielderId || null : null,
+      fielder2Id: ball.isWicket ? ball.fielder2Id || null : null,
       bowlerCredited,
       byeRuns: (toBye ? runs : 0) + otBye,
       chargedRuns: charged, // runs charged to the bowler (no byes / leg-byes)
@@ -134,18 +141,22 @@ export function buildScorecard(innings) {
 
     if (ball.isWicket) {
       wickets += 1;
-      const outRow = bat(striker);
+      if (ball.dismissalType === "Run Out" && (runs + ot) % 2 === 1) [striker, nonStriker] = [nonStriker, striker];
+      const outId = ball.dismissedId && (ball.dismissedId === striker || ball.dismissedId === nonStriker) ? ball.dismissedId : striker;
+      const outRow = bat(outId);
       outRow.out = true;
       outRow.dismissal = ball.dismissalType || "Out";
       outRow.fielderId = ball.fielderId || null;
+      outRow.fielder2Id = ball.fielder2Id || null;
       if (bowlerCredited) {
         bowler.wickets += 1;
         outRow.bowlerId = ball.bowlerId;
       }
-      fow.push({ wicket: wickets, runs: total, batsmanId: striker, overs: oversText(legal) });
+      fow.push({ wicket: wickets, runs: total, batsmanId: outId, overs: oversText(legal) });
       if (ball.newBatsmanId) {
-        striker = ball.newBatsmanId;
-        bat(striker);
+        if (outId === striker) striker = ball.newBatsmanId;
+        else nonStriker = ball.newBatsmanId;
+        bat(ball.newBatsmanId);
       }
     } else if ((runs + ot) % 2 === 1) {
       [striker, nonStriker] = [nonStriker, striker];
@@ -206,7 +217,7 @@ export function dismissalText(row, nameOf, isAtCrease) {
       return fielder ? `c ${fielder}${b}` : `caught${b}`;
     case "Stumped": return fielder ? `st ${fielder}${b}` : `st${b}`;
     case "Hit Wicket": return `hit wicket${b}`;
-    case "Run Out": return fielder ? `run out (${fielder})` : "run out";
+    case "Run Out": return fielder ? `run out (${fielder}${row.fielder2Id ? "/" + nameOf(row.fielder2Id) : ""})` : "run out";
     case "Retired Hurt": return "retired hurt";
     default: return "out";
   }

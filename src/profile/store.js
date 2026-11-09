@@ -72,6 +72,7 @@ export async function updateMyProfile(userId, { name, role, battingStyle, bowlin
     }
     return { ok: true };
   } catch (e) {
+    if (/duplicate key|profiles_phone_unique/i.test(String(e && e.message))) return fail("This mobile number is already registered with another CricCorner account.");
     return fail(friendlyError(e));
   }
 }

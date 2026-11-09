@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { View, Text, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { useAuth } from "../auth/AuthContext";
-import { playerMatchesUser } from "../auth/identity";
+import { playerMatchesUser, phoneKey, emailKey } from "../auth/identity";
+import { checkAccountExists } from "../auth/duplicates";
 import { ROLES } from "../auth/validators";
 import { validatePlayerEdit, applyPlayerEdit, playerUsage } from "../players/playerOps";
 import FormField from "../components/FormField";
@@ -23,6 +24,7 @@ export default function EditPlayerScreen({ route, navigation }) {
   const [email, setEmail] = useState(player?.email || "");
   const [role, setRole] = useState(player?.role && player.role !== "Player" ? player.role : null);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   if (!player) return null;
   if (!canEdit("players", playerId)) {
@@ -42,7 +44,7 @@ export default function EditPlayerScreen({ route, navigation }) {
     navigation.goBack();
   };
 
-  const save = () => {
+  const save = async () => {
     setError("");
     const v = validatePlayerEdit({ name, phone, email, role }, players, playerId);
     if (!v.ok) {
@@ -50,24 +52,32 @@ export default function EditPlayerScreen({ route, navigation }) {
       return;
     }
     const edited = applyPlayerEdit(players, playerId, v.values);
-    if (!v.duplicate) {
-      commit(edited);
+    // Never offer to delete the other person: just say it is taken. (A number/email you are not changing is left alone.)
+    const d = v.duplicate;
+    const samePhone = !!(d && v.values.phone && d.phone && phoneKey(d.phone) === phoneKey(v.values.phone) && phoneKey(v.values.phone) !== phoneKey(player.phone));
+    const sameEmail = !!(d && v.values.email && d.email && emailKey(d.email) === v.values.email && v.values.email !== emailKey(player.email));
+    if (samePhone || sameEmail) {
+      const what = samePhone && sameEmail ? "mobile number and email" : samePhone ? "mobile number" : "email";
+      setError(`The ${what} you entered is already registered${d.name ? ` (${d.name})` : ""}. Please use a different one.`);
       return;
     }
-    // Another player already has this number/email.
-    const dupUsage = playerUsage(v.duplicate.id, { teams, matches });
-    if (dupUsage.used) {
-      setError(`"${v.duplicate.name}" already has this number and is in ${dupUsage.teams.length ? "a team" : "a match"}. Edit that player instead, or use Profile → Fix duplicate contacts.`);
-      return;
+    // Only ask the server when the contact actually changed (and it isn't this account's own).
+    const ownPhone = (x) => !!user.phone && phoneKey(x) === phoneKey(user.phone);
+    const ownEmail = (x) => !!user.email && emailKey(x) === emailKey(user.email);
+    const phoneChanged = v.values.phone && phoneKey(v.values.phone) !== phoneKey(player.phone) && !ownPhone(v.values.phone);
+    const emailChanged = v.values.email && emailKey(v.values.email) !== emailKey(player.email) && !ownEmail(v.values.email);
+    if (phoneChanged || emailChanged) {
+      setBusy(true);
+      const remote = await checkAccountExists(emailChanged ? v.values.email : "", phoneChanged ? v.values.phone : "");
+      setBusy(false);
+      if (remote.email || remote.phone) {
+        const what = remote.email && remote.phone ? "mobile number and email" : remote.phone ? "mobile number" : "email";
+        setError(`The ${what} you entered is already registered with CricCorner. Please use a different one.`);
+        return;
+      }
     }
-    Alert.alert(
-      "Remove the duplicate?",
-      `Another player, "${v.duplicate.name}", already has this number and isn't in any team or match. Remove that empty entry and keep this one?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Remove duplicate", style: "destructive", onPress: () => commit(edited.filter((p) => p.id !== v.duplicate.id)) },
-      ]
-    );
+    dispatch({ type: "HYDRATE", payload: { players: edited } });
+    Alert.alert("Player updated", `${v.values.name} has been updated.`, [{ text: "OK", onPress: () => navigation.goBack() }]);
   };
 
   const remove = () => {
@@ -113,7 +123,7 @@ export default function EditPlayerScreen({ route, navigation }) {
         </Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button title="Save Changes" onPress={save} />
+        <Button title={busy ? "Saving…" : "Save Changes"} onPress={save} disabled={busy} />
         {!usage.used ? <Button title="Delete Player" variant="danger" onPress={remove} style={{ marginTop: spacing.md }} /> : null}
         <View style={{ height: spacing.xl }} />
       </ScrollView>

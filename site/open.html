@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open in CricCorner</title>
+<style>
+  :root { --green:#01365C; --bg:#F3F7F3; --text:#16211a; --muted:#5b6b60; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#101712; --text:#e8f0ea; --muted:#9db0a2; --card:#18221b; --green:#5aa7d6; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); display:flex; min-height:100vh; align-items:center; justify-content:center; padding:16px; }
+  main { width:100%; max-width:420px; background:var(--card); border-radius:16px; padding:28px 22px; box-shadow:0 6px 24px rgba(0,0,0,.12); text-align:center; }
+  h1 { margin:6px 0 4px; font-size:22px; }
+  p { color:var(--muted); line-height:1.5; margin:8px 0; }
+  .logo { font-size:44px; }
+  a.btn { display:block; width:100%; padding:14px; margin-top:14px; border-radius:12px; font-size:16px; font-weight:700; text-decoration:none; background:var(--green); color:#fff; }
+  a.alt { background:transparent; color:var(--green); border:2px solid var(--green); }
+  small { display:block; margin-top:18px; color:var(--muted); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">🏏</div>
+  <h1 id="title">Opening CricCorner…</h1>
+  <p id="msg">If you have the app, it opens in a moment. If not, the web version opens instead.</p>
+  <a id="app" class="btn" href="#">Open in the CricCorner app</a>
+  <a id="web" class="btn alt" href="#">Open on the web</a>
+  <small id="bad" hidden>This link is incomplete. Ask the person who sent it to share it again.</small>
+</main>
+<script>
+  var q = new URLSearchParams(location.search);
+  var kind = q.get("s"), id = q.get("i");
+  var kinds = ["player", "team", "match", "tournament"];
+  var appBtn = document.getElementById("app"), webBtn = document.getElementById("web");
+  if (kinds.indexOf(kind) < 0 || !id) {
+    appBtn.hidden = true; webBtn.hidden = true;
+    document.getElementById("msg").hidden = true;
+    document.getElementById("title").textContent = "CricCorner";
+    document.getElementById("bad").hidden = false;
+  } else {
+    // the web version of the app lives at the root of this same site
+    var root = location.href.split("open.html")[0];
+    var web = root + "?s=" + encodeURIComponent(kind) + "&i=" + encodeURIComponent(id);
+    var app = "criccorner://share/" + encodeURIComponent(kind) + "/" + encodeURIComponent(id);
+    var isAndroid = /Android/i.test(navigator.userAgent);
+    // Android Chrome: open the app, or go to the web version by itself when it is not installed.
+    var androidIntent = "intent://share/" + encodeURIComponent(kind) + "/" + encodeURIComponent(id) +
+      "#Intent;scheme=criccorner;package=com.criccorner;S.browser_fallback_url=" + encodeURIComponent(web) + ";end";
+    appBtn.href = isAndroid ? androidIntent : app;
+    webBtn.href = web;
+    var left = false;
+    document.addEventListener("visibilitychange", function () { if (document.hidden) left = true; });
+    window.addEventListener("pagehide", function () { left = true; });
+    setTimeout(function () { location.href = isAndroid ? androidIntent : app; }, 250);
+    // iPhone (and others) have no automatic fallback: if the app did not take over, show the web version.
+    if (!isAndroid) setTimeout(function () { if (!left && !document.hidden) location.replace(web); }, 2200);
+  }
+</script>
+</body>
+</html>

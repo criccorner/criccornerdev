@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import ShareButton from "../share/ShareButton";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Share } from "react-native";
 import { useAppState, useAppDispatch, useAllState, useAccess, useSync } from "../context/AppContext";
 import { makeInviteCode, buildInviteLinks } from "../invite/links";
@@ -148,6 +149,7 @@ export default function TeamDetailScreen({ route, navigation }) {
           <Text style={typography.muted}>{roster.length} player{roster.length === 1 ? "" : "s"} on roster</Text>
           <Text style={typography.muted}>Owner: {nameOf(team.ownerId)}{captainId ? ` · Captain: ${nameOf(captainId)}` : ""}</Text>
           {team.createdByName ? <Text style={typography.muted}>Created by: {team.createdByName}</Text> : null}
+          <ShareButton kind="team" id={team.id} name={team.name} label="🔗 Share this team" style={{ alignSelf: "flex-start", marginTop: 4 }} />
           {canManage ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: 2 }}>
               <Pressable onPress={() => navigation.navigate("EditTeam", { teamId })} hitSlop={6}>

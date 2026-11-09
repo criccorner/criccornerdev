@@ -13,6 +13,8 @@ import TermsGate from "./legal/TermsGate";
 import SetupNeededScreen from "./screens/SetupNeededScreen";
 import SyncBanner from "./components/SyncBanner";
 import InviteWatcher from "./invite/InviteWatcher";
+import ShareWatcher from "./share/ShareWatcher";
+import { parseShareUrl, setPendingShare } from "./share/links";
 import { parseInviteUrl, setPendingInvite } from "./invite/links";
 import { navigationRef } from "./navigation/navRef";
 import Button from "./components/Button";
@@ -52,6 +54,7 @@ function DataGate({ user }) {
       <SyncBanner />
       <SeedSelf user={user} />
       <InviteWatcher />
+      <ShareWatcher />
       <View style={{ flex: 1 }}>
         <RootNavigator />
       </View>
@@ -95,7 +98,9 @@ function useInviteLinks() {
   useEffect(() => {
     const handle = (url) => {
       const inv = parseInviteUrl(url);
-      if (inv) setPendingInvite(inv);
+      if (inv) return setPendingInvite(inv);
+      const sh = parseShareUrl(url);
+      if (sh) setPendingShare(sh);
     };
     Linking.getInitialURL().then(handle).catch(() => {});
     const sub = Linking.addEventListener("url", ({ url }) => handle(url));

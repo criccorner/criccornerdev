@@ -8,6 +8,8 @@ import { pathFromUrl } from "../profile/store";
 import { loadSession, setSession, getSession, onSessionChange, normalizeSession } from "../cloud/session";
 import { ApiError } from "../cloud/http";
 import { Linking } from "react-native";
+import { checkAccountExists } from "./duplicates";
+import { logActivity } from "../admin/activity";
 import { oauthUrl, parseOAuthCallback, isOAuthCallback } from "./oauth";
 
 // Login with email + password, backed by Supabase Auth (a real server).
@@ -17,6 +19,10 @@ const LOGIN_ERROR = "Incorrect email or password.";
 const PROFILE_CACHE = "@criccorner_profile_cache_v1";
 const AuthContext = createContext(null);
 const fail = (error) => ({ ok: false, error });
+const EXISTS_MSG = "This email is already registered with CricCorner. Please log in instead, or use \"Forgot password\" if you can't remember your password.";
+const existsFail = () => ({ ok: false, error: EXISTS_MSG, exists: true });
+const PHONE_EXISTS_MSG = "This mobile number is already registered with CricCorner. Please log in with that account, or use a different number.";
+const BOTH_EXIST_MSG = "This email and mobile number are already registered with CricCorner. Please log in instead, or use \"Forgot password\" if you can't remember your password.";
 
 async function fetchProfile(userId) {
   const r = await rest(`profiles?select=*&id=eq.${encodeURIComponent(userId)}`);
@@ -55,7 +61,9 @@ export function AuthProvider({ children }) {
         return fail(BLOCKED_MESSAGE);
       }
       setNotice(null);
-      setUser(profileToUser(p));
+      const u = profileToUser(p);
+      setUser(u);
+      logActivity(u, "login", "Logged in");
       return { ok: true };
     },
     [signOutLocal]
@@ -70,7 +78,11 @@ export function AuthProvider({ children }) {
           const p = await fetchProfile(s.user.id);
           if (!p) await signOutLocal();
           else if (p.blocked) await signOutLocal(BLOCKED_MESSAGE);
-          else setUser(profileToUser(p));
+          else {
+            const u = profileToUser(p);
+            setUser(u);
+            logActivity(u, "login", "Opened the app");
+          }
         } catch (e) {
           if (e instanceof ApiError && e.status === 0) {
             try {
@@ -110,6 +122,11 @@ export function AuthProvider({ children }) {
     if (ph === null) return fail("Enter a valid mobile number (8-15 digits), or leave it empty.");
     const pwErr = validatePassword(password);
     if (pwErr) return fail(pwErr);
+    // Tell the person straight away if the email or the mobile number already has an account.
+    const dup = await checkAccountExists(email, ph);
+    if (dup.email && dup.phone) return { ok: false, error: BOTH_EXIST_MSG, exists: true };
+    if (dup.email) return existsFail();
+    if (dup.phone) return { ok: false, error: PHONE_EXISTS_MSG, exists: true };
     try {
       const json = await authCall("/signup", { body: { email, password, data: { name: name.trim(), role, phone: ph } } });
       if (json && json.access_token) {
@@ -117,10 +134,16 @@ export function AuthProvider({ children }) {
         const r = await adopt(json);
         return r.ok ? { ok: true, identifier: email, signedIn: true } : r;
       }
+      // With email confirmation on, Supabase answers "success" for an email that already has an account, but the
+      // returned user has no identities. That is how we know it is taken (no confirmation code is sent in that case).
+      if (json && json.user && Array.isArray(json.user.identities) && json.user.identities.length === 0) return existsFail();
+      if (json && Array.isArray(json.identities) && json.identities.length === 0) return existsFail();
       return { ok: true, identifier: email };
     } catch (e) {
       if (e instanceof ApiError && e.status === 429) return fail("Too many sign-up emails were sent just now. Please wait a few minutes and try again.");
-      if (e instanceof ApiError && /already|registered/i.test(e.message)) return fail("An account with this email already exists. Please log in.");
+      // the database's own safety net (one account per mobile number)
+      if (ph && /database error saving|duplicate key|profiles_phone_unique/i.test(String(e && e.message))) return { ok: false, error: PHONE_EXISTS_MSG, exists: true };
+      if (e instanceof ApiError && (e.code === "user_already_exists" || e.code === "email_exists" || /already|registered|exists/i.test(e.message))) return existsFail();
       return fail(friendlyError(e));
     }
   }, [adopt]);

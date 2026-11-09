@@ -160,12 +160,11 @@ function ReplaceTab({ match, teams, players, sides, access, tagged, nameOf, team
   const squads = sides.map((s) => ({ side: s, team: teamOfSide(s), ids: squadIds(match, teams, s === "A" ? match.teamAId : match.teamBId) }));
   const side = fromId ? sideOfPlayer(match, fromId, teams) : null;
   const team = side ? teamOfSide(side) : null;
-  // Stand-ins: the team's other players first, then the players this account added.
+  // Stand-ins: only the players who are in this team.
   const pool = [];
   const seen = new Set();
   const add = (p) => { if (p && !seen.has(p.id)) { seen.add(p.id); pool.push(p); } };
   ((team && team.playerIds) || []).forEach((id) => add(players.find((p) => p.id === id)));
-  (access.mine.players || []).forEach((p) => add(players.find((x) => x.id === p.id) || p));
   let candidates = replacementCandidates(match, pool);
   if (q.trim()) candidates = candidates.filter((p) => (p.name || "").toLowerCase().includes(q.trim().toLowerCase()));
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ShareButton from "../share/ShareButton";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 import { useAppState, useAllState, useAppDispatch, useAccess } from "../context/AppContext";
 import { useAuth } from "../auth/AuthContext";
@@ -105,6 +106,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.md }}>
       <Text style={typography.h2}>{tournament.name}</Text>
+      <ShareButton kind="tournament" id={tournament.id} name={tournament.name} label="🔗 Share this tournament" style={{ alignSelf: "flex-start", marginVertical: 4 }} />
       <Text style={typography.muted}>
         {tournament.startDate}{tournament.endDate ? ` – ${tournament.endDate}` : ""}
         {f ? ` · ${FORMAT_NAME[f.type]} · ${f.overs} overs · ${tournament.teamIds.length} teams` : ""}

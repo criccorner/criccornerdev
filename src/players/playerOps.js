@@ -56,6 +56,17 @@ export function validatePlayerEdit({ name, phone, email, role }, players, player
   return { ok: true, values: { name: nm, phone: ph, email: em, role: role || "Player" }, duplicate };
 }
 
+// Which existing players already have this mobile number and/or email (any formatting)?
+export function findDuplicates(players, { phone, email }) {
+  const ph = (phone || "").trim() ? phoneKey(cleanPhone(phone) || phone) : null;
+  const em = (email || "").trim() ? emailKey(email) : null;
+  const live = (players || []).filter((p) => !p.deleted);
+  return {
+    byPhone: (ph && live.find((p) => p.phone && phoneKey(p.phone) === ph)) || null,
+    byEmail: (em && live.find((p) => p.email && emailKey(p.email) === em)) || null,
+  };
+}
+
 export function applyPlayerEdit(players, playerId, values) {
   return players.map((p) => (p.id === playerId ? { ...p, ...values } : p));
 }

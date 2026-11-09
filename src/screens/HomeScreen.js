@@ -36,7 +36,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.header}>
         <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>🏏 Cricket Scorer</Text>
+            <Text style={styles.title}>🏏 CricCorner</Text>
             <Text style={styles.subtitle}>Everything you need to run match day</Text>
           </View>
           <NotificationBell navigation={navigation} />

@@ -40,6 +40,7 @@ function replaceInInnings(inn, from, to) {
     bowlerChangesPerOver: per,
     balls: (inn.balls || []).map((b) => {
       if (b.type === "swap") return b;
+      if (b.type === "batter") return { ...b, inId: swap(b.inId, from, to) };
       if (b.type === "bowler") return { ...b, bowlerId: swap(b.bowlerId, from, to) };
       return {
         ...b,
@@ -47,6 +48,8 @@ function replaceInInnings(inn, from, to) {
         bowlerId: swap(b.bowlerId, from, to),
         fielderId: swap(b.fielderId, from, to),
         newBatsmanId: swap(b.newBatsmanId, from, to),
+        dismissedId: swap(b.dismissedId, from, to),
+        fielder2Id: swap(b.fielder2Id, from, to),
       };
     }),
   };
@@ -60,7 +63,7 @@ export function playersInMatch(match) {
     if (!inn) return;
     [inn.openers.strikerId, inn.openers.nonStrikerId, inn.keeperId].forEach((x) => x && ids.add(x));
     Object.values(inn.bowlerChangesPerOver || {}).forEach((x) => x && ids.add(x));
-    (inn.balls || []).forEach((b) => [b.batsmanId, b.bowlerId, b.fielderId, b.newBatsmanId].forEach((x) => x && ids.add(x)));
+    (inn.balls || []).forEach((b) => [b.inId, b.batsmanId, b.bowlerId, b.fielderId, b.fielder2Id, b.dismissedId, b.newBatsmanId].forEach((x) => x && ids.add(x)));
   });
   return ids;
 }
@@ -112,10 +115,11 @@ function swapInInnings(inn, a, b, doBat, doBowl) {
     bowlerChangesPerOver: per,
     balls: (inn.balls || []).map((ball) => {
       if (ball.type === "swap") return ball;
+      if (ball.type === "batter") return doBat ? { ...ball, inId: x(ball.inId) } : ball;
       if (ball.type === "bowler") return doBowl ? { ...ball, bowlerId: x(ball.bowlerId) } : ball;
       return {
         ...ball,
-        ...(doBat ? { batsmanId: x(ball.batsmanId), newBatsmanId: x(ball.newBatsmanId) } : {}),
+        ...(doBat ? { batsmanId: x(ball.batsmanId), newBatsmanId: x(ball.newBatsmanId), dismissedId: x(ball.dismissedId) } : {}),
         ...(doBowl ? { bowlerId: x(ball.bowlerId) } : {}),
       };
     }),
@@ -205,7 +209,7 @@ export function changeDismissal(innings, index, type, fielderId, ctx) {
   if (err) return { error: err };
   const f = canHaveFielder(type) ? fielderId || null : null;
   const balls = innings.balls.slice();
-  balls[index] = { ...ball, dismissalType: type, fielderId: f };
+  balls[index] = { ...ball, dismissalType: type, fielderId: f, ...(type === "Run Out" ? {} : { fielder2Id: null, dismissedId: null }) };
   return { innings: { ...innings, balls } };
 }
 
@@ -236,7 +240,7 @@ export function oversOf(innings) {
   const opening = innings.bowlerChangesPerOver && innings.bowlerChangesPerOver[0];
   if (opening) push(slot(0), opening);
   innings.balls.forEach((b, i) => {
-    if (b.type === "swap") return;
+    if (b.type === "swap" || b.type === "batter") return;
     const o = slot(idx[i]);
     push(o, b.bowlerId);
     if (!b.type && b.extraType !== "wide" && b.extraType !== "noball") o.balls += 1;
@@ -273,7 +277,7 @@ export function changeOverBowler(innings, over, bowlerId, ctx) {
   const err = validateOverBowler(innings, over, bowlerId, ctx);
   if (err) return { error: err };
   const idx = overIndexByEntry(innings);
-  const balls = innings.balls.map((b, i) => (idx[i] === over && b.type !== "swap" ? { ...b, bowlerId } : b));
+  const balls = innings.balls.map((b, i) => (idx[i] === over && b.type !== "swap" && b.type !== "batter" ? { ...b, bowlerId } : b));
   const per = { ...(innings.bowlerChangesPerOver || {}) };
   if (over === 0 || per[over] != null) per[over] = bowlerId;
   return { innings: { ...innings, balls, bowlerChangesPerOver: per } };
@@ -299,7 +303,7 @@ export function replaceBowler(innings, fromId, toId, ctx) {
     ...innings,
     bowlerChangesPerOver: per,
     balls: (innings.balls || []).map((b) => {
-      if (b.type === "swap") return b;
+      if (b.type === "swap" || b.type === "batter") return b;
       return { ...b, bowlerId: swap(b.bowlerId, fromId, toId) };
     }),
   };

@@ -119,7 +119,7 @@ export function computePlayerStats({ matches, teams, playerId }) {
         }
       }
 
-      if (d.isWicket && d.fielderId === playerId) {
+      if (d.isWicket && (d.fielderId === playerId || d.fielder2Id === playerId)) {
         if (d.dismissalType === "Stumped") keep.stumpings += 1;
         else if (d.dismissalType === "Caught") {
           if (isKeeper) keep.catches += 1;

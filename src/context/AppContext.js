@@ -4,6 +4,7 @@ import { newId } from "../utils/id";
 import { overlap } from "../utils/squads";
 import { useAuth } from "../auth/AuthContext";
 import { rest } from "../cloud/api";
+import { logActivity, describeAction } from "../admin/activity";
 import { createEngine, syncOnce, diffState, hasChanges, applyRemote, markSynced, addMissing, emptySynced, emptyOwners, fingerprint } from "../cloud/sync";
 import { computeAccess, scopeState, mineLists, otherLists, createdLists, canEditItem, guardAction } from "../access/scope";
 import { canDeleteMatch, captainSides } from "../utils/squads";
@@ -387,6 +388,8 @@ export function AppProvider({ children }) {
         return;
       }
       dispatch(checked);
+      const note = describeAction(checked);
+      if (note && userRef.current) logActivity(userRef.current, note.action, note.detail);
     },
     [dispatch, patchSync]
   );

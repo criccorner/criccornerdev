@@ -12,7 +12,7 @@
 //   - bowler picked / changed   { type: "bowler", bowlerId, kind }
 //
 // Known simplifications:
-//  - A wicket is assumed to dismiss the striker (run-out of non-striker: TODO).
+//  - A wicket dismisses the striker unless the ball says otherwise (dismissedId, for a run-out of the non-striker).
 //  - Free-hit after a no-ball is not tracked.
 // ---------------------------------------------------------------------------
 
@@ -75,6 +75,13 @@ export function computeInningsSummary(innings) {
     if (ball.type === "bowler") {
       currentBowler = ball.bowlerId;
       bowlerAssigned = true;
+      continue;
+    }
+    if (ball.type === "batter") {
+      // the scorer put a different batter at the crease (wrong batter picked); nobody is out
+      ensureBatsman(ball.inId);
+      if (ball.role === "nonStriker") nonStriker = ball.inId;
+      else striker = ball.inId;
       continue;
     }
 
@@ -141,12 +148,17 @@ export function computeInningsSummary(innings) {
     if (ball.isWicket) {
       wickets += 1;
       if (ball.dismissalType !== "Run Out") bowlerStats[ball.bowlerId].wickets += 1;
-      ensureBatsman(striker);
-      batsmenStats[striker].out = true;
-      batsmenStats[striker].howOut = ball.dismissalType || "Out";
+      // Run out: the batters may have crossed before the throw, and it can be either batter.
+      if (ball.dismissalType === "Run Out" && (runs + ot) % 2 === 1) [striker, nonStriker] = [nonStriker, striker];
+      const outId = ball.dismissedId && (ball.dismissedId === striker || ball.dismissedId === nonStriker) ? ball.dismissedId : striker;
+      ensureBatsman(outId);
+      batsmenStats[outId].out = true;
+      batsmenStats[outId].howOut = ball.dismissalType || "Out";
       if (ball.newBatsmanId) {
-        striker = ball.newBatsmanId;
-        ensureBatsman(striker);
+        // the new batter takes the place of the one who got out
+        if (outId === striker) striker = ball.newBatsmanId;
+        else nonStriker = ball.newBatsmanId;
+        ensureBatsman(ball.newBatsmanId);
       }
     } else if ((runs + ot) % 2 === 1) {
       [striker, nonStriker] = [nonStriker, striker];
@@ -199,6 +211,8 @@ export function recordBall(innings, ballInput) {
     isWicket: !!ballInput.isWicket,
     dismissalType: ballInput.dismissalType || null,
     fielderId: ballInput.isWicket ? ballInput.fielderId || null : null, // who took the catch / stumping / run-out
+    fielder2Id: ballInput.isWicket && ballInput.dismissalType === "Run Out" ? ballInput.fielder2Id || null : null, // second fielder in a run-out
+    dismissedId: ballInput.isWicket ? ballInput.dismissedId || null : null, // who got out (a run-out can be the non-striker)
     newBatsmanId: ballInput.newBatsmanId || null,
     bowlerId: ballInput.bowlerId || summary.currentBowlerId,
     batsmanId: ballInput.batsmanId || summary.striker,
@@ -234,6 +248,13 @@ export function undoLastBall(innings) {
 export function setBowler(innings, bowlerId) {
   const kind = needsNewBowler(innings) ? "start" : "change";
   return { ...innings, balls: [...innings.balls, { type: "bowler", bowlerId, kind }] };
+}
+
+// Put a different batter at the crease: role "striker" or "nonStriker". The batter who is replaced is not out
+// and keeps what he has scored. Recorded in the ball log, so Undo takes it back.
+export function changeBatter(innings, role, inId, reason) {
+  const text = typeof reason === "string" ? reason.trim().slice(0, 120) : "";
+  return { ...innings, balls: [...innings.balls, { type: "batter", role: role === "nonStriker" ? "nonStriker" : "striker", inId, reason: text || null }] };
 }
 
 // Manually swap striker and non-striker. The reason is optional.
@@ -278,6 +299,10 @@ export function bowlerOptions(innings, rosterIds) {
 export function describeEntry(e, nameOf) {
   if (!e) return "";
   if (e.type === "swap") return e.reason ? `strike change (${e.reason})` : "strike change";
+  if (e.type === "batter") {
+    const who = nameOf ? ` (${nameOf(e.inId)})` : "";
+    return `${e.role === "nonStriker" ? "non-striker" : "striker"} change${who}`;
+  }
   if (e.type === "bowler") {
     const who = nameOf ? ` (${nameOf(e.bowlerId)})` : "";
     return `${e.kind === "start" ? "bowler selection" : "bowler change"}${who}`;

@@ -212,6 +212,7 @@ export function recordBall(innings, ballInput) {
     dismissalType: ballInput.dismissalType || null,
     fielderId: ballInput.isWicket ? ballInput.fielderId || null : null, // who took the catch / stumping / run-out
     fielder2Id: ballInput.isWicket && ballInput.dismissalType === "Run Out" ? ballInput.fielder2Id || null : null, // second fielder in a run-out
+    outZone: ballInput.isWicket && (ballInput.dismissalType === "Caught" || ballInput.dismissalType === "Run Out") ? ballInput.outZone || null : null, // where the catch / run-out happened
     dismissedId: ballInput.isWicket ? ballInput.dismissedId || null : null, // who got out (a run-out can be the non-striker)
     newBatsmanId: ballInput.newBatsmanId || null,
     bowlerId: ballInput.bowlerId || summary.currentBowlerId,

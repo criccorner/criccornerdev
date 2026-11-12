@@ -33,6 +33,10 @@ export const SHOTS = [
   { key: "other", label: "Other", towards: [] },
 ];
 
+// Where a catch was taken / a run-out happened: the wagon-wheel areas plus two more.
+export const OUT_ZONES = [...ZONES, { key: "straight", label: "Straight", side: "straight", angle: 0 }, { key: "behind", label: "Behind the wicket", side: "behind", angle: 180 }];
+export const zoneLabel = (k) => (OUT_ZONES.find((z) => z.key === k) || {}).label || null;
+
 export const zoneByKey = (k) => ZONES.find((z) => z.key === k) || null;
 export const shotByKey = (k) => SHOTS.find((s) => s.key === k) || null;
 

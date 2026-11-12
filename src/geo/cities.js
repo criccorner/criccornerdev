@@ -5,16 +5,39 @@
 const CITY_TYPES = new Set(["city", "town", "municipality", "village", "suburb", "borough", "city_district", "hamlet"]);
 const cache = new Map();
 
-// -> [{ name, label, lat, lng, country }]  (empty when nothing real matches)
-export async function searchCities(query, fetchFn) {
-  const q = String(query || "").trim().replace(/\s+/g, " ");
-  if (q.length < 3) return [];
-  const key = q.toLowerCase();
-  if (cache.has(key)) return cache.get(key);
-  const f = fetchFn || (typeof fetch === "function" ? fetch : null);
-  if (!f) return [];
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=en&q=${encodeURIComponent(q)}`;
+// OpenStreetMap needs a name that identifies the app, otherwise it often refuses phone requests.
+const UA = { Accept: "application/json", "User-Agent": "CricCorner/1.0 (cricket scoring app; criccorner.github.io)" };
+
+// Open-Meteo's free place search: no key, reliable from phones and browsers.
+async function viaOpenMeteo(q, f) {
+  const parts = q.split(",").map((x) => x.trim()).filter(Boolean);
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(parts[0])}&count=20&language=en&format=json`;
   const res = await f(url, { headers: { Accept: "application/json" } });
+  if (!res || !res.ok) throw new Error("City search is not available right now.");
+  const data = await res.json();
+  const rest = parts.slice(1).map((x) => x.toLowerCase());
+  const out = [];
+  const seen = new Set();
+  for (const r of (data && data.results) || []) {
+    if (!/^PPL/.test(r.feature_code || "") && r.feature_code !== "ADM3" && r.feature_code !== "ADM4") continue;
+    const lat = Number(r.latitude);
+    const lng = Number(r.longitude);
+    if (!r.name || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const region = r.admin1 || "";
+    const country = r.country || "";
+    const hay = `${region} ${country} ${r.admin2 || ""} ${r.country_code || ""}`.toLowerCase();
+    if (rest.length && !rest.every((x) => hay.includes(x))) continue;
+    const label = [r.name, region, country].filter(Boolean).join(", ");
+    if (seen.has(label.toLowerCase())) continue;
+    seen.add(label.toLowerCase());
+    out.push({ name: r.name, label, lat, lng, country });
+  }
+  return out.slice(0, 8);
+}
+
+async function viaNominatim(q, f) {
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=en&q=${encodeURIComponent(q)}`;
+  const res = await f(url, { headers: UA });
   if (!res || !res.ok) throw new Error("City search is not available right now.");
   const rows = await res.json();
   const out = [];
@@ -34,7 +57,30 @@ export async function searchCities(query, fetchFn) {
     seen.add(label.toLowerCase());
     out.push({ name, label, lat, lng, country });
   }
-  cache.set(key, out);
+  return out;
+}
+
+// -> [{ name, label, lat, lng, country }]  (empty when nothing real matches). Throws only when BOTH services fail.
+export async function searchCities(query, fetchFn) {
+  const q = String(query || "").trim().replace(/\s+/g, " ");
+  if (q.length < 3) return [];
+  const key = q.toLowerCase();
+  if (cache.has(key)) return cache.get(key);
+  const f = fetchFn || (typeof fetch === "function" ? fetch : null);
+  if (!f) return [];
+  let out = null;
+  let failed = 0;
+  for (const svc of [viaOpenMeteo, viaNominatim]) {
+    try {
+      const r = await svc(q, f);
+      if (r.length) { out = r; break; }
+      if (!out) out = r;
+    } catch (e) {
+      failed += 1;
+    }
+  }
+  if (out === null) throw new Error("City search is not available right now.");
+  if (failed < 2) cache.set(key, out);
   return out;
 }
 

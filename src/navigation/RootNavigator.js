@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../utils/theme";
 import { leaveScoring } from "./leaveScoring";
+import { guardTabs } from "./draftGuard";
 
 import HomeScreen from "../screens/HomeScreen";
 import PlayersScreen from "../screens/PlayersScreen";
@@ -189,6 +190,7 @@ export default function RootNavigator() {
   return (
     <Tab.Navigator
       tabBar={(props) => <AppTabBar {...props} />}
+      screenListeners={guardTabs}
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={tabOptions("Home", "🏠")} />

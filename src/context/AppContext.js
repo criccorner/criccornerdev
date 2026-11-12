@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { rest } from "../cloud/api";
 import { logActivity, describeAction } from "../admin/activity";
 import { createEngine, syncOnce, diffState, hasChanges, applyRemote, markSynced, addMissing, emptySynced, emptyOwners, fingerprint } from "../cloud/sync";
-import { computeAccess, scopeState, mineLists, otherLists, createdLists, canEditItem, guardAction } from "../access/scope";
+import { computeAccess, scopeState, mineLists, otherLists, createdLists, canEditItem, guardAction, mayDeleteItem, mayCloneMatch } from "../access/scope";
 import { canDeleteMatch, captainSides } from "../utils/squads";
 import { playerMatchesUser } from "../auth/identity";
 import { saveCache, loadCache } from "../cloud/cacheStore";
@@ -109,6 +109,32 @@ export function reducer(state, action) {
       };
     }
 
+    case "SET_TEAM_CITY": {
+      const { teamId, place } = action.payload;
+      if (!state.teams.some((t) => t.id === teamId)) return state;
+      const f = place ? { city: place.name, cityLabel: place.label || place.name, cityLat: place.lat, cityLng: place.lng } : { city: null, cityLabel: null, cityLat: null, cityLng: null };
+      return { ...state, teams: state.teams.map((t) => (t.id === teamId ? { ...t, ...f } : t)) };
+    }
+
+    case "DELETE_TEAM": {
+      // A team that has matches keeps them (the scorecards need it), so it can only be deleted once it has none.
+      const { teamId } = action.payload;
+      if (!state.teams.some((t) => t.id === teamId)) return state;
+      if (state.matches.some((m) => m.teamAId === teamId || m.teamBId === teamId)) return state;
+      return {
+        ...state,
+        teams: state.teams.filter((t) => t.id !== teamId),
+        tournaments: state.tournaments.map((t) => (t.teamIds && t.teamIds.includes(teamId) ? { ...t, teamIds: t.teamIds.filter((id) => id !== teamId) } : t)),
+      };
+    }
+
+    case "DELETE_TOURNAMENT": {
+      // The tournament goes; its matches stay as ordinary matches.
+      const { tournamentId } = action.payload;
+      if (!state.tournaments.some((t) => t.id === tournamentId)) return state;
+      return { ...state, tournaments: state.tournaments.filter((t) => t.id !== tournamentId) };
+    }
+
     case "SET_TEAM_INVITE": {
       // The secret code in the team's invite link. A new code makes old links stop working.
       const { teamId, code } = action.payload;
@@ -196,6 +222,8 @@ export function reducer(state, action) {
     case "SCHEDULE_MATCH": {
       // safety net: a player can never be in both squads
       if (overlap(action.payload.squadA, action.payload.squadB).length) return state;
+      // the same request arriving twice (a double tap) must not make a second match
+      if (action.payload.id && state.matches.some((m) => m.id === action.payload.id)) return state;
       const match = {
         id: newId("match"),
         status: "scheduled",
@@ -512,6 +540,8 @@ export function AppProvider({ children }) {
       createdByMe: createdLists(state, userRef.current),
       canEdit: (kind, id) => canEditItem(state, access, userRef.current, kind, id),
       canDeleteMatch: (match) => canDeleteMatch(match, state.players, userRef.current, playerMatchesUser),
+      mayDelete: (kind, id) => mayDeleteItem(state, access, userRef.current, kind, id),
+      mayClone: (id) => mayCloneMatch(access, id),
       // Captains correct their own side; the person who created (and scores) the match may correct both; admins too.
       correctionSides: (match) => {
         const sides = captainSides(match, state.players, userRef.current, playerMatchesUser);

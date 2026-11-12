@@ -10,7 +10,7 @@ import SponsorBanner from "../components/SponsorBanner";
 import { matchPlace } from "../geo/cities";
 import ShotPicker from "../components/ShotPicker";
 import { recentOvers } from "../utils/overLine";
-import { shotLabel } from "../utils/shots";
+import { shotLabel, OUT_ZONES } from "../utils/shots";
 import {
   computeInningsSummary,
   recordBall,
@@ -61,6 +61,7 @@ export default function LiveScoringScreen({ route, navigation }) {
   const [dismissalType, setDismissalType] = useState(null);
   const [newBatsmanId, setNewBatsmanId] = useState(null);
   const [fielderId, setFielderId] = useState(null);
+  const [outZone, setOutZone] = useState(null); // where the catch / run-out happened (optional)
   const [fielder2Id, setFielder2Id] = useState(null); // second player in a run-out (optional)
   const [dismissedWho, setDismissedWho] = useState("striker"); // run-out: "striker" or "nonStriker"
   const [roRuns, setRoRuns] = useState(0); // runs completed before the run-out
@@ -240,6 +241,7 @@ export default function LiveScoringScreen({ route, navigation }) {
     setDismissalType(null);
     setNewBatsmanId(null);
     setFielderId(null);
+    setOutZone(null);
     setFielder2Id(null);
     setDismissedWho("striker");
     setRoRuns(0);
@@ -273,6 +275,7 @@ export default function LiveScoringScreen({ route, navigation }) {
         dismissedId: runOut ? (dismissedWho === "nonStriker" ? summary.nonStriker : summary.striker) : null,
         fielderId: FIELDER_PROMPT[dismissalType] ? fielderId : null,
         fielder2Id: runOut && fielderId && fielder2Id && fielder2Id !== fielderId ? fielder2Id : null,
+        outZone: dismissalType === "Caught" || runOut ? outZone : null,
         newBatsmanId: needsNewBatsman ? newBatsmanId : null,
       })
     );
@@ -548,6 +551,19 @@ export default function LiveScoringScreen({ route, navigation }) {
                   {dismissalType === "Caught" && fielderId && fielderId === summary.currentBowlerId ? (
                     <Text style={[typography.muted, { marginTop: spacing.xs }]}>Caught and bowled</Text>
                   ) : null}
+                </>
+              ) : null}
+
+              {dismissalType === "Caught" || dismissalType === "Run Out" ? (
+                <>
+                  <Text style={[typography.h3, { marginTop: spacing.md }]}>{dismissalType === "Caught" ? "Where was the catch taken? (optional)" : "Where did the run out happen? (optional)"}</Text>
+                  <View style={styles.chipRow}>
+                    {OUT_ZONES.map((z) => (
+                      <Pressable key={z.key} onPress={() => setOutZone(outZone === z.key ? null : z.key)} style={[styles.chip, outZone === z.key && styles.chipActive]}>
+                        <Text style={[styles.chipText, outZone === z.key && { color: "#fff" }]}>{z.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </>
               ) : null}
 

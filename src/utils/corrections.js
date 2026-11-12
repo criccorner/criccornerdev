@@ -209,7 +209,7 @@ export function changeDismissal(innings, index, type, fielderId, ctx) {
   if (err) return { error: err };
   const f = canHaveFielder(type) ? fielderId || null : null;
   const balls = innings.balls.slice();
-  balls[index] = { ...ball, dismissalType: type, fielderId: f, ...(type === "Run Out" ? {} : { fielder2Id: null, dismissedId: null }) };
+  balls[index] = { ...ball, dismissalType: type, fielderId: f, ...(type === "Run Out" ? {} : { fielder2Id: null, dismissedId: null }), ...(type === "Run Out" || type === "Caught" ? {} : { outZone: null }) };
   return { innings: { ...innings, balls } };
 }
 

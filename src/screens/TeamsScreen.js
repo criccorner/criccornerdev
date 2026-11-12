@@ -36,9 +36,10 @@ export default function TeamsScreen({ navigation }) {
                   <TeamLogo team={item} size={46} />
                   <View style={{ flex: 1, marginLeft: spacing.sm }}>
                 <Text style={typography.h3}>{item.name}</Text>
+                {item.city ? <Text style={typography.muted}>📍 {item.cityLabel || item.city}</Text> : null}
                 <Text style={typography.muted}>
                   {item.playerIds.length} player{item.playerIds.length === 1 ? "" : "s"} · Owner:{" "}
-                  {owner?.name || "Unassigned"}
+                  {owner?.name || item.createdByName || "Unassigned"}
                 </Text>
                   </View>
                 </View>

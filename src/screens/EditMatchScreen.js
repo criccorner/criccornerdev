@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, ScrollView, Alert, StyleSheet } from "react-native";
-import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
+import { useAppState, useAllState, useAppDispatch, useAccess } from "../context/AppContext";
 import { colors, spacing, typography } from "../utils/theme";
 import FormField from "../components/FormField";
 import Button from "../components/Button";
@@ -9,6 +9,8 @@ import { computeInningsSummary } from "../utils/cricketEngine";
 import { validateMatchSquads, squadFields, sideFromMatch, keeperOf } from "../utils/squads";
 import StagePicker from "../components/StagePicker";
 import { cleanStage } from "../utils/stages";
+import { DateField, TimeField } from "../components/DateTimeFields";
+import { parseTime, formatTime, isValidDate, findDuplicateMatch } from "../utils/datetime";
 
 // Which of `ids` appear anywhere inside the innings data (batted, bowled, fielded, at the crease...).
 function usedIn(match, ids) {
@@ -28,7 +30,7 @@ function usedIn(match, ids) {
   return found;
 }
 
-const validDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+const validDate = isValidDate;
 
 export default function EditMatchScreen({ route, navigation }) {
   const { matchId } = route.params;
@@ -43,6 +45,8 @@ export default function EditMatchScreen({ route, navigation }) {
   const [overs, setOvers] = useState(String(match?.overs || 20));
   const [venue, setVenue] = useState(match?.venue || "");
   const [date, setDate] = useState(match?.date ? String(match.date).slice(0, 10) : "");
+  const [time, setTime] = useState(match?.time ? formatTime(match.time) : "");
+  const everyMatch = useAllState().matches;
   const [stage, setStage] = useState(match?.stage || null);
   const [sideA, setSideA] = useState(() => sideFromMatch(match, "A", teamA?.playerIds || []));
   const [sideB, setSideB] = useState(() => {
@@ -74,7 +78,16 @@ export default function EditMatchScreen({ route, navigation }) {
       return;
     }
     if (!validDate(date.trim())) {
-      Alert.alert("Invalid date", "Use the format YYYY-MM-DD, for example 2026-08-15.");
+      Alert.alert("Invalid date", "Pick the date from the calendar, or type it as YYYY-MM-DD, for example 2026-08-15.");
+      return;
+    }
+    const timeStr = parseTime(time);
+    if (timeStr === null) {
+      Alert.alert("Invalid time", "Enter the time like 7:30 PM or 19:30, or leave it empty.");
+      return;
+    }
+    if (match.status === "scheduled" && findDuplicateMatch(everyMatch, { teamAId: match.teamAId, teamBId: match.teamBId, date: date.trim(), time: timeStr, ignoreId: match.id })) {
+      Alert.alert("Already scheduled", "Another match between these two teams is already scheduled for that date and time. Change the date or time of this one.");
       return;
     }
     if (live) {
@@ -94,7 +107,7 @@ export default function EditMatchScreen({ route, navigation }) {
       Alert.alert("Check the squads", squadError);
       return;
     }
-    const changes = { overs: oversNum, venue: venue.trim() || null, date: date.trim(), ...squadFields(sideA, sideB) };
+    const changes = { overs: oversNum, venue: venue.trim() || null, date: date.trim(), time: timeStr || null, ...squadFields(sideA, sideB) };
     if (match.tournamentId) changes.stage = cleanStage(stage);
     if (live) {
       const next = { ...match, ...changes };
@@ -123,7 +136,8 @@ export default function EditMatchScreen({ route, navigation }) {
         </Text>
       ) : null}
       <FormField label="Venue" value={venue} onChangeText={setVenue} placeholder="e.g. City Ground" />
-      <FormField label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-08-15" autoCapitalize="none" />
+      <DateField label="Date" value={date} onChange={setDate} />
+      <TimeField label="Time (optional)" value={time} onChange={setTime} />
 
       {match.tournamentId ? <StagePicker value={stage} onChange={setStage} /> : null}
 

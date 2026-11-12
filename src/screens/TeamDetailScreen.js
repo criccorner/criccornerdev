@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { matchWhen } from "../utils/datetime";
 import ShareButton from "../share/ShareButton";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Share } from "react-native";
 import { useAppState, useAppDispatch, useAllState, useAccess, useSync } from "../context/AppContext";
@@ -21,10 +22,12 @@ const BY_LABEL = { mobile: "matched by mobile", email: "matched by email", name:
 export default function TeamDetailScreen({ route, navigation }) {
   const { teamId } = route.params;
   const { teams, players, matches } = useAppState();
-  const everyone = useAllState().players; // search looks through ALL players
+  const allState = useAllState();
+  const everyone = allState.players; // search looks through ALL players
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { canEdit, isAdmin, mine } = useAccess();
+  const access = useAccess();
+  const { canEdit, isAdmin, mine } = access;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerMode, setPickerMode] = useState("add"); // "add" | "request"
   const [query, setQuery] = useState("");
@@ -72,6 +75,31 @@ export default function TeamDetailScreen({ route, navigation }) {
   };
 
   const nameOf = (id) => (everyone.find((p) => p.id === id) || {}).name || "Unknown";
+  const ownerName = team.ownerId ? nameOf(team.ownerId) : team.createdByName || "Unassigned";
+  const teamMatches = allState.matches.filter((m) => m.teamAId === teamId || m.teamBId === teamId);
+
+  // Only the owner (the person who created the team) or an admin sees this. Teams that have matches must keep them.
+  const deleteTeam = () => {
+    if (teamMatches.length) {
+      Alert.alert(
+        "This team can't be deleted yet",
+        `${team.name} has ${teamMatches.length} match${teamMatches.length === 1 ? "" : "es"}. Their scorecards need the team, so delete those matches first (open each match and use Delete), then delete the team.`
+      );
+      return;
+    }
+    Alert.alert("Delete team?", `${team.name} will be deleted. The players stay in CricCorner. This can't be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          dispatch({ type: "DELETE_TEAM", payload: { teamId } });
+          Alert.alert("Team deleted", `${team.name} has been deleted.`);
+          navigation.goBack();
+        },
+      },
+    ]);
+  };
 
   const changeLogo = async () => {
     try {
@@ -146,8 +174,9 @@ export default function TeamDetailScreen({ route, navigation }) {
         <TeamLogo team={team} size={64} />
         <View style={{ flex: 1, marginLeft: spacing.md }}>
           <Text style={typography.h2}>{team.name}</Text>
+          {team.city ? <Text style={typography.muted}>📍 {team.cityLabel || team.city}</Text> : null}
           <Text style={typography.muted}>{roster.length} player{roster.length === 1 ? "" : "s"} on roster</Text>
-          <Text style={typography.muted}>Owner: {nameOf(team.ownerId)}{captainId ? ` · Captain: ${nameOf(captainId)}` : ""}</Text>
+          <Text style={typography.muted}>Owner: {ownerName}{captainId ? ` · Captain: ${nameOf(captainId)}` : ""}</Text>
           {team.createdByName ? <Text style={typography.muted}>Created by: {team.createdByName}</Text> : null}
           <ShareButton kind="team" id={team.id} name={team.name} label="🔗 Share this team" style={{ alignSelf: "flex-start", marginTop: 4 }} />
           {canManage ? (
@@ -190,6 +219,9 @@ export default function TeamDetailScreen({ route, navigation }) {
             </Pressable>
           ) : null}
         </View>
+      ) : null}
+      {access.mayDelete("teams", teamId) ? (
+        <Button title="🗑 Delete team" variant="danger" onPress={deleteTeam} style={{ marginBottom: spacing.md }} />
       ) : null}
       {!canManage ? (
         <Card>
@@ -288,7 +320,7 @@ export default function TeamDetailScreen({ route, navigation }) {
             <Pressable key={m.id} onPress={() => navigation.navigate("Matches", { screen: "Scorecard", params: { matchId: m.id } })} style={styles.matchRow}>
               <View style={{ flex: 1 }}>
                 <Text style={[typography.body, { fontWeight: "700" }]} numberOfLines={1}>vs {opp}</Text>
-                <Text style={typography.muted} numberOfLines={1}>{new Date(m.date).toDateString()}{m.venue ? ` · ${m.venue}` : ""}</Text>
+                <Text style={typography.muted} numberOfLines={1}>{matchWhen(m)}{m.venue ? ` · ${m.venue}` : ""}</Text>
                 {m.status === "completed" && m.result ? <Text style={{ color: colors.success, fontSize: 12 }} numberOfLines={2}>{m.result}</Text> : null}
               </View>
               <Text style={{ color: colors.textMuted }}>{m.status === "live" ? "🔴 LIVE ›" : m.status === "scheduled" ? "🗓 ›" : "›"}</Text>

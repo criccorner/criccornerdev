@@ -47,7 +47,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const { tournamentId } = route.params;
   const { tournaments, matches, teams } = useAppState();
   const dispatch = useAppDispatch();
-  const { canEdit } = useAccess();
+  const access = useAccess();
+  const { canEdit } = access;
   const manage = canEdit("tournaments", tournamentId);
   const [editingSponsor, setEditingSponsor] = useState(null); // sponsor being edited, or "new"
   const everyone = useAllState().players;
@@ -91,6 +92,20 @@ export default function TournamentDetailScreen({ route, navigation }) {
       { text: "Remove", style: "destructive", onPress: () => dispatch({ type: "REMOVE_SPONSOR", payload: { tournamentId, sponsorId: sp.id } }) },
     ]);
 
+  const deleteTournament = () =>
+    Alert.alert("Delete tournament?", `${tournament.name} will be deleted. Its matches stay in CricCorner as ordinary matches. This can't be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          dispatch({ type: "DELETE_TOURNAMENT", payload: { tournamentId } });
+          Alert.alert("Tournament deleted", `${tournament.name} has been deleted.`);
+          navigation.goBack();
+        },
+      },
+    ]);
+
   const MatchRow = ({ m }) => (
     <Pressable onPress={() => openMatch(m)} style={styles.matchRow}>
       <View style={{ flex: 1 }}>
@@ -115,9 +130,16 @@ export default function TournamentDetailScreen({ route, navigation }) {
       {organizerName ? <Text style={typography.muted}>Organizer: {organizerName}</Text> : null}
       {tournament.contact ? <Text style={[typography.body, { marginTop: 2 }]}>Want to join? Contact: <Text style={{ fontWeight: "800" }}>{tournament.contact}</Text></Text> : null}
       {manage ? (
-        <Pressable onPress={() => navigation.navigate("EditTournament", { tournamentId })} hitSlop={6} style={{ marginTop: spacing.xs }}>
-          <Text style={{ color: colors.primary, fontWeight: "800" }}>✏️ Edit name, dates and details</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, marginTop: spacing.xs }}>
+          <Pressable onPress={() => navigation.navigate("EditTournament", { tournamentId })} hitSlop={6}>
+            <Text style={{ color: colors.primary, fontWeight: "800" }}>✏️ Edit name, dates and details</Text>
+          </Pressable>
+          {access.mayDelete("tournaments", tournamentId) ? (
+            <Pressable onPress={deleteTournament} hitSlop={6}>
+              <Text style={{ color: colors.danger, fontWeight: "800" }}>🗑 Delete tournament</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       {progress.complete ? (

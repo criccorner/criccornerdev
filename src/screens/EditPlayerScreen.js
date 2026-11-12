@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
+import { hasContact } from "../access/scope";
 import { useAuth } from "../auth/AuthContext";
 import { playerMatchesUser, phoneKey, emailKey } from "../auth/identity";
 import { checkAccountExists } from "../auth/duplicates";
@@ -16,7 +17,8 @@ export default function EditPlayerScreen({ route, navigation }) {
   const { players, teams, matches } = useAppState();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { canEdit } = useAccess();
+  const access = useAccess();
+  const { canEdit } = access;
 
   const player = players.find((p) => p.id === playerId);
   const [name, setName] = useState(player?.name || "");
@@ -124,7 +126,12 @@ export default function EditPlayerScreen({ route, navigation }) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button title={busy ? "Saving…" : "Save Changes"} onPress={save} disabled={busy} />
-        {!usage.used ? <Button title="Delete Player" variant="danger" onPress={remove} style={{ marginTop: spacing.md }} /> : null}
+        {!usage.used && access.mayDelete("players", playerId) ? <Button title="Delete Player" variant="danger" onPress={remove} style={{ marginTop: spacing.md }} /> : null}
+        {!usage.used && !access.mayDelete("players", playerId) ? (
+          <Text style={[typography.muted, { marginTop: spacing.md }]}>
+            {hasContact(player) ? "A player with a mobile number or email can only be deleted by that player or an admin." : "Only the person who created this player, or an admin, can delete them."}
+          </Text>
+        ) : null}
         <View style={{ height: spacing.xl }} />
       </ScrollView>
     </KeyboardAvoidingView>

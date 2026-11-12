@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
+import { useAppState, useAllState, useAppDispatch, useAccess } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import FormField from "../components/FormField";
 import Button from "../components/Button";
@@ -11,12 +11,11 @@ import SquadPicker from "../components/SquadPicker";
 import { validateMatchSquads, squadFields } from "../utils/squads";
 import StagePicker from "../components/StagePicker";
 import { cleanStage } from "../utils/stages";
+import { DateField, TimeField } from "../components/DateTimeFields";
+import { todayIso, isValidDate, parseTime, findDuplicateMatch } from "../utils/datetime";
+import { setDraftDirty, onDraftDiscard, confirmLeave } from "../navigation/draftGuard";
 
 const LAST_CITY_KEY = "@criccorner_last_match_city_v1";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -42,6 +41,7 @@ export function findTeams(allTeams, query, excludeIds = [], limit = 8) {
 export default function ScheduleMatchScreen({ navigation, route }) {
   const { players, teams: allTeams, matches } = useAppState();
   const { mine, canEdit, createdByMe, myPlayerIds } = useAccess();
+  const everyMatch = useAllState().matches;
   // Team A: the teams you created (or own). Team B: those, plus teams you have played, plus a search for anyone else.
   const ownTeams = useMemo(() => {
     const created = new Set((createdByMe.teams || []).map((t) => t.id));
@@ -57,12 +57,45 @@ export default function ScheduleMatchScreen({ navigation, route }) {
   const [overs, setOvers] = useState("20");
   const [venue, setVenue] = useState("");
   const [date, setDate] = useState(todayIso());
+  const [time, setTime] = useState("");
   const [tournamentId, setTournamentId] = useState(presetTournamentId);
   const [stage, setStage] = useState(null); // Quarter Final, Semi Final ... (tournament matches only)
   const [place, setPlace] = useState(null); // the match's city (for local sponsors)
   const emptySide = { ids: [], captainId: null, keeperId: null };
   const [sideA, setSideA] = useState(emptySide);
   const [sideB, setSideB] = useState(emptySide);
+  const saved = useRef(false); // set once the match is scheduled, so leaving is not questioned
+  const busy = useRef(false); // stops a double tap from scheduling the match twice
+
+  // Anything typed or chosen counts as a draft.
+  const dirty = !!(teamAId || teamBId || venue.trim() || findText.trim() || time.trim() || stage || sideA.ids.length || sideB.ids.length || overs !== "20" || date !== todayIso() || (tournamentId && tournamentId !== presetTournamentId));
+  useEffect(() => {
+    setDraftDirty(dirty && !saved.current);
+    return () => setDraftDirty(false);
+  }, [dirty]);
+
+  // "Yes" on the tab-switch question: throw the draft away so the form is empty next time.
+  useEffect(() => onDraftDiscard(() => {
+    saved.current = true;
+    setTeamAId(null); setTeamBId(null); setFindText(""); setOvers("20"); setVenue(""); setDate(todayIso()); setTime("");
+    setStage(null); setSideA({ ids: [], captainId: null, keeperId: null }); setSideB({ ids: [], captainId: null, keeperId: null });
+    setTournamentId(presetTournamentId);
+    saved.current = false;
+  }), [presetTournamentId]);
+
+  // Going back (button, gesture or header arrow) with an unsaved draft: ask first.
+  useEffect(() => {
+    if (!navigation || !navigation.addListener) return undefined;
+    return navigation.addListener("beforeRemove", (e) => {
+      if (saved.current || !dirty) return;
+      e.preventDefault();
+      confirmLeave(() => {
+        saved.current = true;
+        setDraftDirty(false);
+        navigation.dispatch(e.data.action);
+      });
+    });
+  }, [navigation, dirty]);
 
   useEffect(() => {
     AsyncStorage.getItem(LAST_CITY_KEY).then((raw) => { if (raw) { try { setPlace((cur) => cur || JSON.parse(raw)); } catch (e) {} } }).catch(() => {});
@@ -89,6 +122,7 @@ export default function ScheduleMatchScreen({ navigation, route }) {
   };
 
   const submit = () => {
+    if (busy.current) return;
     if (!teamAId || !teamBId) {
       Alert.alert("Pick both teams");
       return;
@@ -100,6 +134,21 @@ export default function ScheduleMatchScreen({ navigation, route }) {
     const oversNum = parseInt(overs, 10);
     if (!Number.isInteger(oversNum) || oversNum < 1 || oversNum > 50) {
       Alert.alert("Invalid overs", "Overs must be a whole number between 1 and 50.");
+      return;
+    }
+    const dateStr = date.trim();
+    if (!isValidDate(dateStr)) {
+      Alert.alert("Invalid date", "Pick the date from the calendar, or type it as YYYY-MM-DD, for example 2026-08-15.");
+      return;
+    }
+    const timeStr = parseTime(time);
+    if (timeStr === null) {
+      Alert.alert("Invalid time", "Enter the time like 7:30 PM or 19:30, or leave it empty.");
+      return;
+    }
+    const dup = findDuplicateMatch(everyMatch, { teamAId, teamBId, date: dateStr, time: timeStr });
+    if (dup) {
+      Alert.alert("Already scheduled", "A match between these two teams is already scheduled for that date and time, so a second one was not created. Open it from the Matches tab, or change the date or time.");
       return;
     }
 
@@ -129,7 +178,8 @@ export default function ScheduleMatchScreen({ navigation, route }) {
       teamBId,
       overs: oversNum,
       venue: venue.trim() || null,
-      date,
+      date: dateStr,
+      time: timeStr || null,
       tournamentId: tournamentId || null,
       stage: tournamentId ? cleanStage(stage) : null,
       ...(effectivePlace ? { city: effectivePlace.name, cityLat: Number.isFinite(effectivePlace.lat) ? effectivePlace.lat : null, cityLng: Number.isFinite(effectivePlace.lng) ? effectivePlace.lng : null } : {}),
@@ -142,6 +192,9 @@ export default function ScheduleMatchScreen({ navigation, route }) {
         : squadFields(sideA, sideB)),
     };
 
+    busy.current = true;
+    saved.current = true;
+    setDraftDirty(false);
     dispatch({ type: "SCHEDULE_MATCH", payload });
     if (tournamentId) {
       dispatch({ type: "ATTACH_MATCH_TO_TOURNAMENT", payload: { tournamentId, matchId } });
@@ -200,7 +253,8 @@ export default function ScheduleMatchScreen({ navigation, route }) {
       <View style={{ height: spacing.md }} />
       <FormField label="Overs (1-50)" value={overs} onChangeText={setOvers} keyboardType="number-pad" placeholder="e.g. 20" />
       <FormField label="Venue" value={venue} onChangeText={setVenue} placeholder="e.g. City Ground" />
-      <FormField label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-08-15" />
+      <DateField label="Date" value={date} onChange={setDate} />
+      <TimeField label="Time (optional)" value={time} onChange={setTime} />
       <CityPicker label="City (optional, for local sponsors)" value={effectivePlace} onChange={setPlace} />
 
       {tournaments.length > 0 && (

@@ -1,4 +1,5 @@
 import React from "react";
+import { matchWhen } from "../utils/datetime";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { STATUSES } from "../utils/availability";
@@ -28,7 +29,7 @@ export default function NotificationsScreen({ navigation }) {
   const n = notificationsFor({ matches, teams, players, access });
   const nameOf = (id) => (teams.find((t) => t.id === id) || {}).name || "Team";
   const title = (m) => `${nameOf(m.teamAId)} vs ${nameOf(m.teamBId)}`;
-  const when = (m) => `${new Date(m.date).toDateString()}${m.venue ? ` · ${m.venue}` : ""}`;
+  const when = (m) => `${matchWhen(m)}${m.venue ? ` · ${m.venue}` : ""}`;
   const open = (m) => navigation.navigate("Attendance", { matchId: m.id });
   const answer = (playerId, matchId, status) => dispatch({ type: "SET_AVAILABILITY", payload: { playerId, matchId, status } });
   const empty = !n.pending.length && !n.picked.length && !n.toConfirm.length;

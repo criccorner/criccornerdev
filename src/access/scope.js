@@ -118,6 +118,46 @@ export function canEditItem(raw, access, user, kind, id) {
   return false;
 }
 
+// Who may DELETE (stricter than editing):
+//  dummy player (no mobile/email) ........ its creator, or an admin
+//  registered player (mobile/email) ...... that person himself, or an admin
+//  team / tournament / match ............. its creator, its owner, or an admin
+export const hasContact = (p) => !!p && !!(String(p.phone || "").trim() || String(p.email || "").trim());
+
+export function mayDeleteItem(raw, access, user, kind, id) {
+  if (!access) return false;
+  if (access.all) return true;
+  const mineIds = access.myPlayerIds || new Set();
+  if (kind === "players") {
+    const p = (raw.players || []).find((x) => x.id === id);
+    if (!p) return false;
+    return hasContact(p) ? playerMatchesUser(p, user) : !!access.created(kind, id);
+  }
+  if (access.created(kind, id)) return true;
+  if (kind === "teams") {
+    const t = (raw.teams || []).find((x) => x.id === id);
+    return !!t && !!t.ownerId && mineIds.has(t.ownerId);
+  }
+  if (kind === "matches") {
+    const m = (raw.matches || []).find((x) => x.id === id);
+    if (!m) return false;
+    return [m.teamAId, m.teamBId].some((tid) => {
+      const t = (raw.teams || []).find((x) => x.id === tid);
+      return !!t && !!t.ownerId && mineIds.has(t.ownerId);
+    });
+  }
+  if (kind === "tournaments") {
+    const t = (raw.tournaments || []).find((x) => x.id === id);
+    return !!t && !!t.ownerId && mineIds.has(t.ownerId);
+  }
+  return false;
+}
+
+// Copying a match: its creator or an admin.
+export function mayCloneMatch(access, id) {
+  return !!access && (access.all || !!access.created("matches", id));
+}
+
 // The invited player of a pending join request may answer it.
 export function isInvitee(raw, access, teamId, requestId) {
   if (!access || access.all) return true;
@@ -139,8 +179,15 @@ export function guardAction(raw, access, user, action, { fingerprint, canDeleteM
     case "REQUEST_PLAYER_JOIN":
     case "SET_TEAM_INVITE":
     case "SET_TEAM_LOGO":
+    case "SET_TEAM_CITY":
     case "UPDATE_TEAM":
       return can("teams", p.teamId) ? action : null;
+    case "DELETE_TEAM":
+      return mayDeleteItem(raw, access, user, "teams", p.teamId) ? action : null;
+    case "DELETE_TOURNAMENT":
+      return mayDeleteItem(raw, access, user, "tournaments", p.tournamentId) ? action : null;
+    case "CLONE_MATCH":
+      return mayCloneMatch(access, p.matchId) ? action : null;
     case "SET_AVAILABILITY": {
       if (!can("players", p.playerId)) return null;
       // Once a captain has confirmed the XI, a player in it cannot pull out himself; the captain changes the XI.
@@ -154,8 +201,8 @@ export function guardAction(raw, access, user, action, { fingerprint, canDeleteM
       return can("matches", p.matchId) ? action : null;
     case "DELETE_MATCH": {
       const m = (raw.matches || []).find((x) => x.id === p.matchId);
-      // a captain may delete; so may the person who scheduled it (or an admin) while it has not started
-      return m && (canDeleteMatch(m, raw.players, user, matches) || (m.status === "scheduled" && can("matches", p.matchId))) ? action : null;
+      // whatever its status (scheduled, live or completed): its creator, its owner or an admin
+      return m && mayDeleteItem(raw, access, user, "matches", p.matchId) ? action : null;
     }
     case "ATTACH_MATCH_TO_TOURNAMENT":
     case "UPDATE_TOURNAMENT":
@@ -182,7 +229,7 @@ export function guardAction(raw, access, user, action, { fingerprint, canDeleteM
         // Items missing from the list: really removed only if they were visible and are the user's to remove.
         for (const old of cur) {
           const id = String(old.id);
-          if (!nextIds.has(id) && (!access.visible[kind].has(id) || !can(kind, id))) out.push(old);
+          if (!nextIds.has(id) && (!access.visible[kind].has(id) || !(kind === "players" ? mayDeleteItem(raw, access, user, kind, id) : can(kind, id)))) out.push(old);
         }
         payload[kind] = out;
       }

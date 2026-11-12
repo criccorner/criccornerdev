@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { matchWhen } from "../utils/datetime";
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { useAuth } from "../auth/AuthContext";
@@ -152,7 +153,7 @@ export default function AttendanceScreen({ route }) {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.md }}>
       <Card>
         <Text style={typography.h3}>{A ? A.name : "Team A"} vs {B ? B.name : "Team B"}</Text>
-        <Text style={typography.muted}>{match.overs} overs · {match.venue || "Venue TBD"} · {new Date(match.date).toDateString()}</Text>
+        <Text style={typography.muted}>{match.overs} overs · {match.venue || "Venue TBD"} · {matchWhen(match)}</Text>
       </Card>
       <Side key={`A${match.lockedA}`} match={match} side="A" team={A} players={players} teams={teams} canManage={sides.includes("A")} mineIds={mineIn(A)} dispatch={dispatch} />
       <Side key={`B${match.lockedB}`} match={match} side="B" team={B} players={players} teams={teams} canManage={sides.includes("B")} mineIds={mineIn(B)} dispatch={dispatch} />

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { matchWhen } from "../utils/datetime";
 import ShareButton from "../share/ShareButton";
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -280,7 +281,7 @@ export default function ScorecardScreen({ route }) {
   };
   const canReopen = match.status === "completed" && match.innings1 && access.canEdit("matches", match.id);
 
-  const mayDelete = access.canDeleteMatch(match) || (match.status === "scheduled" && access.canEdit("matches", match.id));
+  const mayDelete = access.mayDelete("matches", match.id);
   const statusLabel = match.status === "live" ? "🔴 LIVE" : match.status === "completed" ? "✅ COMPLETED" : "🗓️ SCHEDULED";
 
   return (
@@ -295,7 +296,7 @@ export default function ScorecardScreen({ route }) {
             {teamA?.name} vs {teamB?.name}
           </Text>
           <Text style={[typography.muted, { textAlign: "center", marginTop: 2 }]}>
-            {match.overs} overs · {match.venue || "Venue TBD"} · {new Date(match.date).toDateString()}
+            {match.overs} overs · {match.venue || "Venue TBD"} · {matchWhen(match)}
           </Text>
           {tossWinner ? (
             <Text style={[typography.muted, { textAlign: "center", marginTop: 2 }]}>
@@ -371,16 +372,18 @@ export default function ScorecardScreen({ route }) {
           </Pressable>
         ) : null}
 
-        <Pressable
-          onPress={() => {
-            const id = newId("match");
-            dispatch({ type: "CLONE_MATCH", payload: { matchId: match.id, newId: id } });
-            navigation.navigate("EditMatch", { matchId: id });
-          }}
-          style={styles.editBtn}
-        >
-          <Text style={styles.editText}>⧉ Clone this match</Text>
-        </Pressable>
+        {access.mayClone(match.id) ? (
+          <Pressable
+            onPress={() => {
+              const id = newId("match");
+              dispatch({ type: "CLONE_MATCH", payload: { matchId: match.id, newId: id } });
+              navigation.navigate("EditMatch", { matchId: id });
+            }}
+            style={styles.editBtn}
+          >
+            <Text style={styles.editText}>⧉ Clone this match</Text>
+          </Pressable>
+        ) : null}
 
         {match.innings1 && access.correctionSides(match).length ? (
           <Pressable onPress={() => navigation.navigate("Corrections", { matchId: match.id })} style={styles.editBtn}>

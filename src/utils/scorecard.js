@@ -2,6 +2,8 @@
 // changes) AND a delivery-by-delivery record (used by the player stats and
 // analytics) by replaying an innings' log. Pure function: no state, no storage.
 // Uses the same rules as cricketEngine.js so both always agree.
+import { zoneLabel } from "./shots";
+
 
 export function oversText(legalBalls) {
   return `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`;
@@ -148,6 +150,7 @@ export function buildScorecard(innings) {
       outRow.dismissal = ball.dismissalType || "Out";
       outRow.fielderId = ball.fielderId || null;
       outRow.fielder2Id = ball.fielder2Id || null;
+      outRow.outZone = ball.outZone || null;
       if (bowlerCredited) {
         bowler.wickets += 1;
         outRow.bowlerId = ball.bowlerId;
@@ -205,6 +208,12 @@ export function buildScorecard(innings) {
 
 // Text under a batter's name, e.g. "b Ravi", "c Asha b Ravi", "run out (Asha)", "not out".
 export function dismissalText(row, nameOf, isAtCrease) {
+  const base = dismissalCore(row, nameOf, isAtCrease);
+  const z = row.out && row.outZone ? zoneLabel(row.outZone) : null;
+  return z ? `${base} (${z})` : base;
+}
+
+function dismissalCore(row, nameOf, isAtCrease) {
   if (!row.out) return isAtCrease ? "batting" : "not out";
   const bowler = row.bowlerId ? nameOf(row.bowlerId) : null;
   const fielder = row.fielderId ? nameOf(row.fielderId) : null;

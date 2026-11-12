@@ -1,4 +1,5 @@
 import React from "react";
+import { matchWhen } from "../utils/datetime";
 import { View, Text, FlatList, StyleSheet, Pressable, Alert } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { newId } from "../utils/id";
@@ -15,7 +16,7 @@ const STATUS_COLORS = {
 
 export default function MatchesScreen({ navigation }) {
   const { teams } = useAppState();
-  const { mine, canEdit, canDeleteMatch } = useAccess();
+  const { mine, canEdit, mayDelete, mayClone } = useAccess();
   const dispatch = useAppDispatch();
   const sorted = [...mine.matches].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -67,7 +68,7 @@ export default function MatchesScreen({ navigation }) {
                 </View>
                 {stageTag(item) ? <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 12 }}>{stageTag(item).toUpperCase()}</Text> : null}
                 <Text style={typography.muted}>
-                  {item.overs} overs · {item.venue || "Venue TBD"} · {new Date(item.date).toDateString()}
+                  {item.overs} overs · {item.venue || "Venue TBD"} · {matchWhen(item)}
                 </Text>
                 {item.status === "completed" && item.result ? <Text style={styles.result}>🏆 {item.result}</Text> : null}
                 <View style={styles.links}>
@@ -76,10 +77,12 @@ export default function MatchesScreen({ navigation }) {
                       <Text style={styles.link}>✏️ Edit match details</Text>
                     </Pressable>
                   ) : null}
-                  <Pressable onPress={() => clone(item)} hitSlop={8}>
-                    <Text style={styles.link}>⧉ Clone</Text>
-                  </Pressable>
-                  {item.status === "scheduled" && (canDeleteMatch(item) || canEdit("matches", item.id)) ? (
+                  {mayClone(item.id) ? (
+                    <Pressable onPress={() => clone(item)} hitSlop={8}>
+                      <Text style={styles.link}>⧉ Clone</Text>
+                    </Pressable>
+                  ) : null}
+                  {mayDelete("matches", item.id) ? (
                     <Pressable onPress={() => confirmDelete(item, `${teamA?.name} vs ${teamB?.name}`)} hitSlop={8}>
                       <Text style={[styles.link, { color: colors.danger }]}>🗑 Delete</Text>
                     </Pressable>

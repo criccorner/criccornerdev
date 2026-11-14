@@ -15,6 +15,7 @@ import { contactLine } from "../access/mask";
 import * as ImagePicker from "expo-image-picker";
 import { TeamLogo, RecordRow, HallOfFameCard } from "../components/TeamExtras";
 import { teamRecord, hallOfFame } from "../stats/awards";
+import StatsTabs from "../components/StatsTabs";
 import { uploadTeamLogo } from "../teams/logo";
 
 const BY_LABEL = { mobile: "matched by mobile", email: "matched by email", name: "matched by name" };
@@ -198,6 +199,7 @@ export default function TeamDetailScreen({ route, navigation }) {
         <Text style={typography.label}>TEAM RECORD</Text>
         <RecordRow record={record} />
       </Card>
+      <StatsTabs matches={recent} teamId={teamId} nameOf={nameOf} onPlayerPress={(playerId) => navigation.navigate("PlayerStats", { playerId })} />
       <HallOfFameCard hall={hall} nameOf={nameOf} onPlayerPress={(playerId) => navigation.navigate("PlayerStats", { playerId })} />
       <View style={{ height: spacing.xs }} />
 

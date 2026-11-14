@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { withCorrectionWindow } from "../components/ScorerGate";
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
@@ -26,7 +27,7 @@ function Chip({ label, sub, active, disabled, onPress }) {
 // Captain corrections: replace a player in the whole match, change how a batter
 // was out (and who caught or stumped him), and change who bowled an over.
 // Works while the match is live and after it has finished.
-export default function CorrectionsScreen({ route }) {
+function CorrectionsScreen({ route }) {
   const { matchId } = route.params;
   const { matches, teams, players } = useAppState();
   const dispatch = useAppDispatch();
@@ -404,3 +405,5 @@ const styles = StyleSheet.create({
   overBlock: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   error: { color: "#C62828", fontWeight: "700", marginTop: spacing.sm },
 });
+
+export default withCorrectionWindow(CorrectionsScreen);

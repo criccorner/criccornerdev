@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import TransferScoring from "../components/TransferScoring";
 import { matchWhen } from "../utils/datetime";
 import ShareButton from "../share/ShareButton";
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
@@ -279,7 +280,8 @@ export default function ScorecardScreen({ route }) {
       ]
     );
   };
-  const canReopen = match.status === "completed" && match.innings1 && access.canEdit("matches", match.id);
+  const corrOpen = match.status !== "completed" || access.correctionWindow(match).open;
+  const canReopen = match.status === "completed" && match.innings1 && access.canEdit("matches", match.id) && corrOpen;
 
   const mayDelete = access.mayDelete("matches", match.id);
   const statusLabel = match.status === "live" ? "🔴 LIVE" : match.status === "completed" ? "✅ COMPLETED" : "🗓️ SCHEDULED";
@@ -366,7 +368,7 @@ export default function ScorecardScreen({ route }) {
           </>
         )}
 
-        {match.status !== "completed" && access.canEdit("matches", match.id) ? (
+        {match.status !== "completed" && access.mayClone(match.id) ? (
           <Pressable onPress={() => navigation.navigate("EditMatch", { matchId: match.id })} style={styles.editBtn}>
             <Text style={styles.editText}>✏️ Edit match details</Text>
           </Pressable>
@@ -385,7 +387,12 @@ export default function ScorecardScreen({ route }) {
           </Pressable>
         ) : null}
 
-        {match.innings1 && access.correctionSides(match).length ? (
+        {match.status !== "completed" ? <TransferScoring match={match} /> : null}
+
+        {match.status === "completed" && match.innings1 && !corrOpen && access.correctionSides(match).length ? (
+          <Text style={[typography.muted, { textAlign: "center", marginVertical: spacing.sm }]}>⏳ Corrections closed on {new Date(access.correctionWindow(match).until).toDateString()} (7 days after the match first finished).</Text>
+        ) : null}
+        {match.innings1 && corrOpen && access.correctionSides(match).length ? (
           <Pressable onPress={() => navigation.navigate("Corrections", { matchId: match.id })} style={styles.editBtn}>
             <Text style={styles.editText}>🛠️ Captain corrections</Text>
           </Pressable>
@@ -397,7 +404,7 @@ export default function ScorecardScreen({ route }) {
           </Pressable>
         ) : null}
 
-        {match.status === "live" && access.canEdit("matches", match.id) ? (
+        {match.status === "live" && access.mayScore(match) ? (
           <Pressable onPress={confirmNoResult} style={styles.editBtn}>
             <Text style={styles.editText}>🌧️ End match as "No result"</Text>
           </Pressable>

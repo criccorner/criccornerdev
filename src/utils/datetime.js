@@ -78,3 +78,13 @@ export function findDuplicateMatch(matches, { teamAId, teamBId, date, time, igno
     ) || null
   );
 }
+
+// True when the date (and time, if given) is already over. Today with no time counts as still current.
+export function isPastSlot(dateStr, timeStr, now = new Date()) {
+  if (!isValidDate(dateStr)) return false;
+  const today = isoDay(now);
+  if (dateStr < today) return true;
+  if (dateStr > today) return false;
+  if (!timeStr) return false;
+  return timeStr < `${p2(now.getHours())}:${p2(now.getMinutes())}`;
+}

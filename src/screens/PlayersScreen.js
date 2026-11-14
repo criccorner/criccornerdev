@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, FlatList, StyleSheet, Pressable, TextInput } from "react-native";
 import { useAccess } from "../context/AppContext";
 import { contactLine } from "../access/mask";
+import { hasContact } from "../access/scope";
 import { useAuth } from "../auth/AuthContext";
 import { playerMatchesUser, contactOf } from "../auth/identity";
 import { colors, spacing, typography, radius } from "../utils/theme";
@@ -10,8 +11,10 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 
 export default function PlayersScreen({ navigation }) {
-  const { mine, canEdit, isAdmin } = useAccess();
-  const players = mine.players;
+  const { mine, canEdit, isAdmin, createdByMe } = useAccess();
+  // Only the dummy players this person created (no mobile number or email). Registered players are found by
+  // search when adding to a team, and admins see everyone under Admin panel > All records.
+  const players = createdByMe.players.filter((p) => !hasContact(p));
   const { user } = useAuth();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -19,7 +22,7 @@ export default function PlayersScreen({ navigation }) {
     () => (q ? players.filter((p) => `${p.name || ""} ${p.role || ""}`.toLowerCase().includes(q)) : players),
     [players, q]
   );
-  const sharing = user.isAdmin && user.phone ? players.filter((p) => playerMatchesUser(p, contactOf(user))).length : 0;
+  const sharing = user.isAdmin && user.phone ? mine.players.filter((p) => playerMatchesUser(p, contactOf(user))).length : 0;
 
   return (
     <View style={styles.container}>
@@ -50,7 +53,7 @@ export default function PlayersScreen({ navigation }) {
           ) : null}
         </View>
         <Text style={[typography.muted, { marginTop: spacing.sm }]}>
-          {q ? `${shown.length} of ${players.length} players` : isAdmin ? "All players. Tap one to see their profile and stats." : "The players you added, and you. Tap one to see their profile and stats."}
+          {q ? `${shown.length} of ${players.length} players` : players.length ? "The dummy players you created. Tap one to see their profile and stats." : "You have not created any dummy players yet. Tap + Add / Join Player."}
         </Text>
       </View>
       <FlatList

@@ -2,7 +2,7 @@
   "expo": {
     "name": "CricCorner",
     "slug": "criccorner",
-    "version": "1.0.5",
+    "version": "1.0.8",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "criccorner",
@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.criccorner",
-        "versionCode": 8,
+        "versionCode": 11,
         "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundImage": "./assets/adaptive-icon-background.png",

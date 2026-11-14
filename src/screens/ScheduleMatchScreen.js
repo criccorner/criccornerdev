@@ -6,6 +6,8 @@ import { colors, spacing, typography, radius } from "../utils/theme";
 import FormField from "../components/FormField";
 import Button from "../components/Button";
 import CityPicker from "../components/CityPicker";
+import VenueField from "../components/VenueField";
+import { regularEleven } from "../utils/venues";
 import { newId } from "../utils/id";
 import SquadPicker from "../components/SquadPicker";
 import { validateMatchSquads, squadFields } from "../utils/squads";
@@ -109,7 +111,8 @@ export default function ScheduleMatchScreen({ navigation, route }) {
   const nameOfPlayer = (id) => (players.find((p) => p.id === id) || {}).name || "";
 
   // Picking a team pre-selects its players, except anyone already in the other squad.
-  const playersOf = (teamId) => (allTeams.find((t) => t.id === teamId)?.playerIds || []).filter((id) => players.some((p) => p.id === id));
+  // The team's regular eleven (most-played in its last 10 matches), not the whole list.
+  const playersOf = (teamId) => regularEleven(teamId, allTeams.find((t) => t.id === teamId), everyMatch, new Set(players.map((p) => p.id)));
   const chooseTeamA = (id) => {
     setTeamAId(id);
     if (teamBId === id) setTeamBId(null);
@@ -252,14 +255,14 @@ export default function ScheduleMatchScreen({ navigation, route }) {
 
       <View style={{ height: spacing.md }} />
       <FormField label="Overs (1-50)" value={overs} onChangeText={setOvers} keyboardType="number-pad" placeholder="e.g. 20" />
-      <FormField label="Venue" value={venue} onChangeText={setVenue} placeholder="e.g. City Ground" />
+      <VenueField value={venue} onChange={setVenue} matches={createdByMe.matches} />
       <DateField label="Date" value={date} onChange={setDate} />
       <TimeField label="Time (optional)" value={time} onChange={setTime} />
       <CityPicker label="City (optional, for local sponsors)" value={effectivePlace} onChange={setPlace} />
 
-      {tournaments.length > 0 && (
+      {presetTournamentId && tournaments.length > 0 && (
         <>
-          <Text style={typography.label}>ATTACH TO TOURNAMENT (OPTIONAL)</Text>
+          <Text style={typography.label}>TOURNAMENT</Text>
           <View style={{ height: spacing.xs }} />
           <View style={styles.chipRow}>
             {tournaments.map((t) => (

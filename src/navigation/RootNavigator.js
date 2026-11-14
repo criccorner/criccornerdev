@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../utils/theme";
-import { leaveScoring } from "./leaveScoring";
 import { guardTabs } from "./draftGuard";
 
 import HomeScreen from "../screens/HomeScreen";
@@ -196,8 +195,8 @@ export default function RootNavigator() {
       <Tab.Screen name="Home" component={HomeScreen} options={tabOptions("Home", "🏠")} />
       <Tab.Screen name="Players" component={PlayersStack} options={tabOptions("Players", "🧑")} />
       <Tab.Screen name="Teams" component={TeamsStack} options={tabOptions("Teams", "👥")} />
-      <Tab.Screen name="Matches" component={MatchesStack} options={tabOptions("Matches", "🏏")} listeners={leaveScoring} />
-      <Tab.Screen name="Tournaments" component={TournamentsStack} options={tabOptions("Tourneys", "🏆")} listeners={leaveScoring} />
+      <Tab.Screen name="Matches" component={MatchesStack} options={tabOptions("Matches", "🏏")} />
+      <Tab.Screen name="Tournaments" component={TournamentsStack} options={tabOptions("Tourneys", "🏆")} />
       <Tab.Screen name="MyStats" component={MyStatsScreen} options={tabOptions("My Stats", "📊")} />
       <Tab.Screen name="Profile" component={ProfileStack} options={tabOptions("Profile", "👤")} />
     </Tab.Navigator>

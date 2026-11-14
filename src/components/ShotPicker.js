@@ -30,7 +30,7 @@ export default function ShotPicker({ value, onChange, hand = "R", onHand, onZone
       </View>
       <View style={[styles.wheel, { width: SIZE, height: SIZE, borderRadius: SIZE / 2 }]}>
         <View style={styles.pitch} />
-        <Text style={styles.bowler}>bowler ↑</Text>
+        <Text style={styles.bowler}>↓ bowler (umpire's view)</Text>
         {ZONES.map((z) => {
           const p = zonePoint(z, hand, SIZE);
           const active = value.zone === z.key;
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   handText: { color: colors.primary, fontWeight: "700", fontSize: 12 },
   wheel: { alignSelf: "center", borderWidth: 2, borderColor: colors.border, backgroundColor: "#E8F3EA" },
   pitch: { position: "absolute", left: SIZE / 2 - 9, top: SIZE / 2 - 38, width: 18, height: 76, backgroundColor: "#D9C79E", borderRadius: 3 },
-  bowler: { position: "absolute", top: 4, alignSelf: "center", fontSize: 10, color: colors.textMuted },
+  bowler: { position: "absolute", bottom: 4, alignSelf: "center", fontSize: 10, color: colors.textMuted },
   zone: { position: "absolute", width: BUBBLE, height: BUBBLE, borderRadius: BUBBLE / 2, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   zoneLikely: { borderColor: colors.accent, borderWidth: 2 },
   zoneActive: { backgroundColor: colors.primary, borderColor: colors.primary },

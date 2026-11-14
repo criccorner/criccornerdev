@@ -1,4 +1,5 @@
 import { Alert } from "react-native";
+import { leaveScoring } from "./leaveScoring";
 
 // Remembers whether an unsaved draft (the schedule-match form) is open, so leaving it can be confirmed.
 let dirty = false;
@@ -25,6 +26,7 @@ export function confirmLeave(onYes) {
 
 // Used as the tab navigator's screenListeners: stops a tab switch while a draft is open, until the person says Yes.
 export const guardTabs = ({ navigation, route }) => ({
+  ...leaveScoring({ navigation, route }), // leaving a tab puts it back on its list page
   tabPress: (e) => {
     if (!dirty || navigation.isFocused()) return;
     e.preventDefault();

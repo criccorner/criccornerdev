@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ShareButton from "../share/ShareButton";
+import StatsTabs from "../components/StatsTabs";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 import { useAppState, useAllState, useAppDispatch, useAccess } from "../context/AppContext";
 import { useAuth } from "../auth/AuthContext";
@@ -287,6 +288,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
           )
         ) : null}
       </Card>
+      <StatsTabs
+        matches={matches.filter((m) => tournament.matchIds.includes(m.id))}
+        nameOf={(id) => (everyone.find((p) => p.id === id) || {}).name || "Unknown"}
+        onPlayerPress={(playerId) => navigation.navigate("PlayerStats", { playerId })}
+      />
     </ScrollView>
   );
 }

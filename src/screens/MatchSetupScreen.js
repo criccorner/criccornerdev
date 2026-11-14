@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { withScorerGate } from "../components/ScorerGate";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 import { useAppState, useAppDispatch } from "../context/AppContext";
 import { colors, spacing, typography, radius } from "../utils/theme";
@@ -7,7 +8,7 @@ import { createInnings } from "../utils/cricketEngine";
 import SquadPicker from "../components/SquadPicker";
 import { validateMatchSquads, squadFields, sideFromMatch } from "../utils/squads";
 
-export default function MatchSetupScreen({ route, navigation }) {
+function MatchSetupScreen({ route, navigation }) {
   const { matchId } = route.params;
   const { matches, teams, players } = useAppState();
   const dispatch = useAppDispatch();
@@ -203,3 +204,5 @@ const styles = StyleSheet.create({
   chipText: { color: colors.text, fontWeight: "600" },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
 });
+
+export default withScorerGate(MatchSetupScreen);

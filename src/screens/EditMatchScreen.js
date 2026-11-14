@@ -10,7 +10,9 @@ import { validateMatchSquads, squadFields, sideFromMatch, keeperOf } from "../ut
 import StagePicker from "../components/StagePicker";
 import { cleanStage } from "../utils/stages";
 import { DateField, TimeField } from "../components/DateTimeFields";
-import { parseTime, formatTime, isValidDate, findDuplicateMatch } from "../utils/datetime";
+import CityPicker from "../components/CityPicker";
+import VenueField from "../components/VenueField";
+import { parseTime, formatTime, isValidDate, findDuplicateMatch, isPastSlot } from "../utils/datetime";
 
 // Which of `ids` appear anywhere inside the innings data (batted, bowled, fielded, at the crease...).
 function usedIn(match, ids) {
@@ -36,7 +38,7 @@ export default function EditMatchScreen({ route, navigation }) {
   const { matchId } = route.params;
   const { matches, teams, players } = useAppState();
   const dispatch = useAppDispatch();
-  const { canEdit } = useAccess();
+  const { mayClone, createdByMe } = useAccess();
 
   const match = matches.find((m) => m.id === matchId);
   const teamA = teams.find((t) => t.id === match?.teamAId);
@@ -46,6 +48,7 @@ export default function EditMatchScreen({ route, navigation }) {
   const [venue, setVenue] = useState(match?.venue || "");
   const [date, setDate] = useState(match?.date ? String(match.date).slice(0, 10) : "");
   const [time, setTime] = useState(match?.time ? formatTime(match.time) : "");
+  const [place, setPlace] = useState(match && match.city ? { name: match.city, label: match.city, lat: match.cityLat, lng: match.cityLng } : null);
   const everyMatch = useAllState().matches;
   const [stage, setStage] = useState(match?.stage || null);
   const [sideA, setSideA] = useState(() => sideFromMatch(match, "A", teamA?.playerIds || []));
@@ -60,7 +63,7 @@ export default function EditMatchScreen({ route, navigation }) {
     </View>
   );
   if (!match || !teamA || !teamB) return null;
-  if (!canEdit("matches", matchId)) return note("Only the match creator, a captain or an admin can edit this match.");
+  if (!mayClone(matchId)) return note("Only the person who created this match, or an admin, can edit its details.");
   if (match.status === "completed") return note("A finished match can't be edited.");
 
   const live = match.status === "live";
@@ -86,6 +89,11 @@ export default function EditMatchScreen({ route, navigation }) {
       Alert.alert("Invalid time", "Enter the time like 7:30 PM or 19:30, or leave it empty.");
       return;
     }
+    const slotChanged = date.trim() !== String(match.date || "").slice(0, 10) || (timeStr || "") !== (match.time || "");
+    if (match.status === "scheduled" && slotChanged && isPastSlot(date.trim(), timeStr)) {
+      Alert.alert("Date and time are in the past", "Before scoring starts, a match must be scheduled for today (a time that has not passed) or a future date.");
+      return;
+    }
     if (match.status === "scheduled" && findDuplicateMatch(everyMatch, { teamAId: match.teamAId, teamBId: match.teamBId, date: date.trim(), time: timeStr, ignoreId: match.id })) {
       Alert.alert("Already scheduled", "Another match between these two teams is already scheduled for that date and time. Change the date or time of this one.");
       return;
@@ -107,7 +115,10 @@ export default function EditMatchScreen({ route, navigation }) {
       Alert.alert("Check the squads", squadError);
       return;
     }
-    const changes = { overs: oversNum, venue: venue.trim() || null, date: date.trim(), time: timeStr || null, ...squadFields(sideA, sideB) };
+    const cityChanges = (place ? place.name : null) !== (match.city || null)
+      ? place ? { city: place.name, cityLat: Number.isFinite(place.lat) ? place.lat : null, cityLng: Number.isFinite(place.lng) ? place.lng : null } : { city: null, cityLat: null, cityLng: null }
+      : {};
+    const changes = { overs: oversNum, venue: venue.trim() || null, date: date.trim(), time: timeStr || null, ...cityChanges, ...squadFields(sideA, sideB) };
     if (match.tournamentId) changes.stage = cleanStage(stage);
     if (live) {
       const next = { ...match, ...changes };
@@ -135,7 +146,8 @@ export default function EditMatchScreen({ route, navigation }) {
           {match.currentInnings === 2 ? " The target stays as it is." : ""}
         </Text>
       ) : null}
-      <FormField label="Venue" value={venue} onChangeText={setVenue} placeholder="e.g. City Ground" />
+      <VenueField value={venue} onChange={setVenue} matches={createdByMe.matches} />
+      <CityPicker label="City (optional, for local sponsors)" value={place} onChange={setPlace} />
       <DateField label="Date" value={date} onChange={setDate} />
       <TimeField label="Time (optional)" value={time} onChange={setTime} />
 

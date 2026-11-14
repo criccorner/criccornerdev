@@ -45,6 +45,7 @@ export function computeInningsSummary(innings) {
 
   let totalRuns = 0;
   let wickets = 0;
+  let allOut = false; // a wicket fell with nobody left to bat
   let legalBallCount = 0;
   const extrasBreakdown = { wide: 0, noball: 0, bye: 0, legbye: 0 };
   const batsmenStats = {};
@@ -147,6 +148,7 @@ export function computeInningsSummary(innings) {
 
     if (ball.isWicket) {
       wickets += 1;
+      if (ball.lastWicket) allOut = true;
       if (ball.dismissalType !== "Run Out") bowlerStats[ball.bowlerId].wickets += 1;
       // Run out: the batters may have crossed before the throw, and it can be either batter.
       if (ball.dismissalType === "Run Out" && (runs + ot) % 2 === 1) [striker, nonStriker] = [nonStriker, striker];
@@ -195,8 +197,9 @@ export function computeInningsSummary(innings) {
     ballsInCurrentOver,
     currentBowlerId: currentBowler,
     bowlerAssigned,
+    allOut,
     isInningsOver:
-      wickets >= 10 || legalBallCount >= innings.totalOvers * 6 || (innings.target != null && totalRuns >= innings.target),
+      wickets >= 10 || allOut || legalBallCount >= innings.totalOvers * 6 || (innings.target != null && totalRuns >= innings.target),
   };
 }
 
@@ -212,6 +215,7 @@ export function recordBall(innings, ballInput) {
     dismissalType: ballInput.dismissalType || null,
     fielderId: ballInput.isWicket ? ballInput.fielderId || null : null, // who took the catch / stumping / run-out
     fielder2Id: ballInput.isWicket && ballInput.dismissalType === "Run Out" ? ballInput.fielder2Id || null : null, // second fielder in a run-out
+    lastWicket: !!(ballInput.isWicket && ballInput.lastWicket), // no batter left to come in: the innings ends
     outZone: ballInput.isWicket && (ballInput.dismissalType === "Caught" || ballInput.dismissalType === "Run Out") ? ballInput.outZone || null : null, // where the catch / run-out happened
     dismissedId: ballInput.isWicket ? ballInput.dismissedId || null : null, // who got out (a run-out can be the non-striker)
     newBatsmanId: ballInput.newBatsmanId || null,

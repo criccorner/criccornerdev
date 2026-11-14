@@ -7,3 +7,6 @@
 // If you rename the GitHub account or repository, change this line and publish again.
 // ---------------------------------------------------------------------------
 export const SHARE_WEB_BASE = "https://criccorner.github.io/criccornerdev/";
+
+// Quick walk-through video page (published with the web site).
+export const HOWTO_URL = `${SHARE_WEB_BASE}howto.html`;

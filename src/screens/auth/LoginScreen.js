@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Text, Pressable, StyleSheet } from "react-native";
+import { Text, Pressable, StyleSheet, Linking } from "react-native";
+import { HOWTO_URL } from "../../share/config";
 import AuthLayout from "../../components/AuthLayout";
 import FormField from "../../components/FormField";
 import Button from "../../components/Button";
@@ -41,6 +42,9 @@ export default function LoginScreen({ navigation, route }) {
       </Pressable>
       <Pressable onPress={() => navigation.navigate("Register")} style={styles.link}>
         <Text style={styles.linkText}>New here? Create an account</Text>
+      </Pressable>
+      <Pressable onPress={() => Linking.openURL(HOWTO_URL).catch(() => {})} style={styles.link}>
+        <Text style={styles.linkText}>🎬 How to use CricCorner</Text>
       </Pressable>
       <SocialButtons />
       <Pressable onPress={() => navigation.navigate("Help")} style={styles.link}>

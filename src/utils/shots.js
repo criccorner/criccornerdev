@@ -48,8 +48,10 @@ export const zoneAngle = (zone, hand) => {
 };
 
 // Centre of a zone bubble inside a square of `size` px, at `radiusFrac` of half the size.
+// Scoring is done from the umpire's end (the bowler's end, looking at the batter), so the wheel is drawn
+// turned upside down compared with the batter's own view: the batter is at the top, the bowler at the bottom.
 export function zonePoint(zone, hand, size, radiusFrac = 0.68) {
-  const a = (zoneAngle(zone, hand) * Math.PI) / 180;
+  const a = ((zoneAngle(zone, hand) + 180) * Math.PI) / 180;
   const c = size / 2;
   const r = c * radiusFrac;
   return { x: c + r * Math.sin(a), y: c - r * Math.cos(a) };

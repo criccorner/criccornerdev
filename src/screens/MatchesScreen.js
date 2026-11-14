@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { matchWhen } from "../utils/datetime";
 import { View, Text, FlatList, StyleSheet, Pressable, Alert } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
@@ -7,6 +7,7 @@ import { colors, spacing, typography, radius } from "../utils/theme";
 import { stageTag } from "../utils/stages";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import SegmentedTabs from "../components/SegmentedTabs";
 
 const STATUS_COLORS = {
   scheduled: colors.info,
@@ -16,13 +17,17 @@ const STATUS_COLORS = {
 
 export default function MatchesScreen({ navigation }) {
   const { teams } = useAppState();
-  const { mine, canEdit, mayDelete, mayClone } = useAccess();
+  const { mine, canEdit, mayDelete, mayClone, mayScore } = useAccess();
   const dispatch = useAppDispatch();
-  const sorted = [...mine.matches].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const [tab, setTab] = useState("upcoming");
+  const when = (m) => `${String(m.date || "").slice(0, 10)} ${m.time || "00:00"}`;
+  const upcoming = mine.matches.filter((m) => m.status !== "completed").sort((a, b) => when(a).localeCompare(when(b)));
+  const past = mine.matches.filter((m) => m.status === "completed").sort((a, b) => when(b).localeCompare(when(a)));
+  const sorted = tab === "upcoming" ? upcoming : past;
 
   const openMatch = (m) => {
     // Only the people who may change a match open its scoring / setup screens; everyone else watches the scorecard.
-    if (m.status === "completed" || !canEdit("matches", m.id)) navigation.navigate("Scorecard", { matchId: m.id });
+    if (m.status === "completed" || !mayScore(m)) navigation.navigate("Scorecard", { matchId: m.id });
     else if (m.status === "live") navigation.navigate("LiveScoring", { matchId: m.id });
     else navigation.navigate("MatchSetup", { matchId: m.id });
   };
@@ -43,13 +48,18 @@ export default function MatchesScreen({ navigation }) {
       <View style={styles.top}>
         <Button title="+ Schedule Match" onPress={() => navigation.navigate("ScheduleMatch")} />
       </View>
+      <SegmentedTabs
+        options={[["upcoming", `Upcoming (${upcoming.length})`], ["past", `Past (${past.length})`]]}
+        value={tab}
+        onChange={setTab}
+      />
       <FlatList
         data={sorted}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.md }}
         ListEmptyComponent={
           <Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>
-            No matches scheduled yet.
+            {tab === "upcoming" ? "No upcoming matches. Tap Schedule Match to add one." : "No finished matches yet."}
           </Text>
         }
         renderItem={({ item }) => {
@@ -72,7 +82,7 @@ export default function MatchesScreen({ navigation }) {
                 </Text>
                 {item.status === "completed" && item.result ? <Text style={styles.result}>🏆 {item.result}</Text> : null}
                 <View style={styles.links}>
-                  {item.status !== "completed" && canEdit("matches", item.id) ? (
+                  {item.status !== "completed" && mayClone(item.id) ? (
                     <Pressable onPress={() => navigation.navigate("EditMatch", { matchId: item.id })} hitSlop={8}>
                       <Text style={styles.link}>✏️ Edit match details</Text>
                     </Pressable>

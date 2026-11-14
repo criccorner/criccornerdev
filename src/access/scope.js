@@ -41,11 +41,12 @@ export function computeAccess(raw, user) {
 
   for (const m of matches) {
     const cap = myPlayerIds.has(m.captainA) || myPlayerIds.has(m.captainB);
-    if (cap) captainMatches.add(m.id);
+    const scorer = !!m.scorerId && myPlayerIds.has(m.scorerId); // the player scoring was handed to
+    if (cap || scorer) captainMatches.add(m.id);
     // Squads not picked yet (players still marking attendance): the match belongs to everyone in both teams.
     const hasSquads = Array.isArray(m.squadA) && Array.isArray(m.squadB) && (m.squadA.length > 0 || m.squadB.length > 0);
     const inSquad = hasSquads ? [...m.squadA, ...m.squadB].some((id) => myPlayerIds.has(id)) : mine.teams.has(m.teamAId) || mine.teams.has(m.teamBId);
-    if (created("matches", m.id) || cap || inSquad) mine.matches.add(m.id);
+    if (created("matches", m.id) || cap || scorer || inSquad) mine.matches.add(m.id);
   }
 
   for (const t of tournaments) {
@@ -153,6 +154,37 @@ export function mayDeleteItem(raw, access, user, kind, id) {
   return false;
 }
 
+// SCORING: one scorer per match. Until the scorer is changed it is the person who created the match; after a
+// transfer it is only the chosen player (nobody else - not the opponent, not captains, not the first scorer).
+export function scorerPlayer(raw, match) {
+  return match && match.scorerId ? (raw.players || []).find((x) => x.id === match.scorerId) || null : null;
+}
+
+export function mayScore(raw, access, user, match) {
+  if (!access || !match) return false;
+  if (access.all) return true; // an admin can always step in
+  if (match.scorerId) {
+    const p = scorerPlayer(raw, match);
+    return !!p && playerMatchesUser(p, user);
+  }
+  return !!access.created("matches", match.id);
+}
+
+// Who the scoring can be handed to: players in the two squads who registered with a mobile number or email.
+export function transferTargets(raw, match) {
+  const ids = new Set([...(match.squadA || []), ...(match.squadB || [])]);
+  return (raw.players || []).filter((p) => ids.has(p.id) && !p.deleted && hasContact(p) && p.id !== match.scorerId);
+}
+
+// Corrections / undo-and-reopen are allowed for 7 days from the FIRST time the match finished (never extended).
+export const CORRECTION_DAYS = 7;
+export function correctionWindow(match, now = Date.now()) {
+  const from = match.completedAt ? Date.parse(match.completedAt) : Date.parse(match.date);
+  if (!Number.isFinite(from)) return { open: true, until: null };
+  const until = from + CORRECTION_DAYS * 86400000;
+  return { open: now <= until, until };
+}
+
 // Copying a match: its creator or an admin.
 export function mayCloneMatch(access, id) {
   return !!access && (access.all || !!access.created("matches", id));
@@ -197,8 +229,19 @@ export function guardAction(raw, access, user, action, { fingerprint, canDeleteM
     }
     case "RESPOND_JOIN_REQUEST":
       return can("teams", p.teamId) || isInvitee(raw, access, p.teamId, p.requestId) ? action : null;
-    case "UPDATE_MATCH":
-      return can("matches", p.matchId) ? action : null;
+    case "UPDATE_MATCH": {
+      if (!can("matches", p.matchId)) return null;
+      const m = (raw.matches || []).find((x) => x.id === p.matchId);
+      const ch = p.changes || {};
+      // only the scorer changes the score of a match that is still being played
+      if (m && m.status !== "completed" && ("innings1" in ch || "innings2" in ch || ch.status === "completed") && !mayScore(raw, access, user, m)) return null;
+      // changing the match details (teams, date, venue...) is for its creator (and admins)
+      return action;
+    }
+    case "TRANSFER_SCORING": {
+      const m = (raw.matches || []).find((x) => x.id === p.matchId);
+      return m && mayScore(raw, access, user, m) && transferTargets(raw, m).some((t) => t.id === p.toPlayerId) ? action : null;
+    }
     case "DELETE_MATCH": {
       const m = (raw.matches || []).find((x) => x.id === p.matchId);
       // whatever its status (scheduled, live or completed): its creator, its owner or an admin

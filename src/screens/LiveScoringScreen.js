@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from "react";
+import TransferScoring from "../components/TransferScoring";
+import { withScorerGate } from "../components/ScorerGate";
 import { squadIds, keeperOf } from "../utils/squads";
 import FlashPressable from "../components/FlashPressable";
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Modal, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import Button from "../components/Button";
 import Card from "../components/Card";
@@ -51,7 +54,7 @@ function extraOptions(type, nbRunType) {
   return [1, 2, 3, 4, 5];
 }
 
-export default function LiveScoringScreen({ route, navigation }) {
+function LiveScoringScreen({ route, navigation }) {
   const { matchId } = route.params;
   const { matches, teams, players, tournaments } = useAppState();
   const access = useAccess();
@@ -59,6 +62,7 @@ export default function LiveScoringScreen({ route, navigation }) {
 
   const [wicketModal, setWicketModal] = useState(false);
   const [dismissalType, setDismissalType] = useState(null);
+  const insets = useSafeAreaInsets();
   const [newBatsmanId, setNewBatsmanId] = useState(null);
   const [fielderId, setFielderId] = useState(null);
   const [outZone, setOutZone] = useState(null); // where the catch / run-out happened (optional)
@@ -146,7 +150,7 @@ export default function LiveScoringScreen({ route, navigation }) {
     const team2Runs = finishedSummary.totalRuns;
     let resultText;
     if (team2Runs > team1Runs) {
-      const wicketsLeft = 10 - finishedSummary.wickets;
+      const wicketsLeft = Math.max(0, Math.min(10, battingRoster.length > 1 ? battingRoster.length - 1 : 10) - finishedSummary.wickets);
       resultText = `${battingTeam.name} won by ${wicketsLeft} wicket${wicketsLeft === 1 ? "" : "s"}`;
     } else if (team1Runs > team2Runs) {
       const margin = team1Runs - team2Runs;
@@ -260,7 +264,8 @@ export default function LiveScoringScreen({ route, navigation }) {
       Alert.alert("Select how the batsman was dismissed");
       return;
     }
-    const needsNewBatsman = summary.wickets < 9;
+    // Nobody left to come in (10th wicket, or a short-handed side): the innings simply ends.
+    const needsNewBatsman = summary.wickets < 9 && availableNewBatsmen.length > 0;
     if (needsNewBatsman && !newBatsmanId) {
       Alert.alert("Select the incoming batsman");
       return;
@@ -277,6 +282,7 @@ export default function LiveScoringScreen({ route, navigation }) {
         fielder2Id: runOut && fielderId && fielder2Id && fielder2Id !== fielderId ? fielder2Id : null,
         outZone: dismissalType === "Caught" || runOut ? outZone : null,
         newBatsmanId: needsNewBatsman ? newBatsmanId : null,
+        lastWicket: !needsNewBatsman,
       })
     );
     setWicketModal(false);
@@ -460,6 +466,9 @@ export default function LiveScoringScreen({ route, navigation }) {
                 <Text style={[styles.wheelToggleText, wheelMode === k && { color: "#fff" }]}>{label}</Text>
               </Pressable>
             ))}
+            <View style={{ marginLeft: "auto" }}>
+              <TransferScoring match={match} compact onTransferred={() => navigation.replace("Scorecard", { matchId })} />
+            </View>
           </View>
           <View style={styles.runBlock}>
             {[[0, 1, 2], [3, 4, 6]].map((row) => (
@@ -491,7 +500,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Wicket */}
       <Modal visible={wicketModal} transparent animationType="slide" onRequestClose={() => setWicketModal(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: spacing.lg + insets.bottom }]}>
             <ScrollView>
               <Text style={typography.h3}>{dismissalType === "Run Out" ? "Run out" : `How was ${strikerName} out?`}</Text>
               <View style={styles.chipRow}>
@@ -567,7 +576,10 @@ export default function LiveScoringScreen({ route, navigation }) {
                 </>
               ) : null}
 
-              {summary.wickets < 9 && (
+              {summary.wickets < 9 && availableNewBatsmen.length === 0 && (
+                <Text style={[typography.muted, { marginTop: spacing.md }]}>No batters left to come in - the innings will end after this wicket.</Text>
+              )}
+              {summary.wickets < 9 && availableNewBatsmen.length > 0 && (
                 <>
                   <Text style={[typography.h3, { marginTop: spacing.md }]}>Incoming batsman</Text>
                   <View style={styles.chipRow}>
@@ -581,12 +593,11 @@ export default function LiveScoringScreen({ route, navigation }) {
                 </>
               )}
 
-              <View style={{ height: spacing.md }} />
-              <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            </ScrollView>
+              <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
                 <Button title="Cancel" variant="outline" onPress={() => setWicketModal(false)} style={{ flex: 1 }} />
                 <Button title="Confirm Out" variant="danger" onPress={confirmWicket} style={{ flex: 1 }} />
               </View>
-            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -594,7 +605,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Change batter */}
       <Modal visible={batterOpen} transparent animationType="slide" onRequestClose={() => setBatterOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: spacing.lg + insets.bottom }]}>
             <ScrollView>
               <Text style={typography.h3}>Change batter</Text>
               <Text style={typography.muted}>Use this when the wrong batter was picked. The batter you replace is not out and keeps his runs.</Text>
@@ -630,7 +641,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Wicketkeeper */}
       <Modal visible={keeperModal} transparent animationType="slide" onRequestClose={() => setKeeperModal(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: spacing.lg + insets.bottom }]}>
             <Text style={typography.h3}>Who is the wicketkeeper?</Text>
             <Text style={typography.muted}>Used for stumpings and keeping stats. You can change it any time.</Text>
             <View style={styles.chipRow}>
@@ -667,7 +678,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Change strike: reason is optional */}
       <Modal visible={strikeModal} transparent animationType="slide" onRequestClose={() => setStrikeModal(false)}>
         <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: spacing.lg + insets.bottom }]}>
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={typography.h3}>Change strike</Text>
               <Text style={[typography.body, { marginTop: spacing.xs }]}>
@@ -703,7 +714,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Shot + direction for runs off the bat (scorer can skip, or switch this off) */}
       <Modal visible={!!shotSheet} transparent animationType="slide" onRequestClose={() => setShotSheet(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: spacing.lg + insets.bottom }]}>
             <ScrollView>
               <Text style={typography.h3}>{shotSheet ? `${shotSheet.runs} run${shotSheet.runs === 1 ? "" : "s"}` : ""} · {strikerName}</Text>
               <Text style={[typography.muted, { marginBottom: spacing.sm }]}>
@@ -725,7 +736,7 @@ export default function LiveScoringScreen({ route, navigation }) {
       {/* Overthrow: runs run before it, the overthrow runs, and how they are credited */}
       <Modal visible={otOpen} transparent animationType="slide" onRequestClose={() => setOtOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: spacing.lg + insets.bottom }]}>
             <ScrollView>
               <Text style={typography.h3}>Overthrow</Text>
               <Text style={typography.muted}>The runs after a misfield or bad throw are added to the runs already run. Choose how they are credited.</Text>
@@ -999,3 +1010,5 @@ const styles = StyleSheet.create({
   chipText: { color: colors.text, fontWeight: "600" },
   chipSub: { color: colors.textMuted, fontSize: 11, marginTop: 1 },
 });
+
+export default withScorerGate(LiveScoringScreen);

@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { rest } from "../cloud/api";
 import { logActivity, describeAction } from "../admin/activity";
 import { createEngine, syncOnce, diffState, hasChanges, applyRemote, markSynced, addMissing, emptySynced, emptyOwners, fingerprint } from "../cloud/sync";
-import { computeAccess, scopeState, mineLists, otherLists, createdLists, canEditItem, guardAction, mayDeleteItem, mayCloneMatch } from "../access/scope";
+import { computeAccess, scopeState, mineLists, otherLists, createdLists, canEditItem, guardAction, mayDeleteItem, mayCloneMatch, mayScore, transferTargets, correctionWindow } from "../access/scope";
 import { canDeleteMatch, captainSides } from "../utils/squads";
 import { playerMatchesUser } from "../auth/identity";
 import { saveCache, loadCache } from "../cloud/cacheStore";
@@ -274,7 +274,21 @@ export function reducer(state, action) {
       const { matchId, changes } = action.payload;
       return {
         ...state,
-        matches: state.matches.map((m) => (m.id === matchId ? { ...m, ...changes } : m)),
+        matches: state.matches.map((m) => {
+          if (m.id !== matchId) return m;
+          const next = { ...m, ...changes };
+          // remember when the match FIRST finished; reopening and finishing again never moves it
+          if (changes.status === "completed" && !m.completedAt) next.completedAt = new Date().toISOString();
+          return next;
+        }),
+      };
+    }
+
+    case "TRANSFER_SCORING": {
+      const { matchId, toPlayerId } = action.payload;
+      return {
+        ...state,
+        matches: state.matches.map((m) => (m.id === matchId ? { ...m, scorerId: toPlayerId, scoringTransferredAt: new Date().toISOString() } : m)),
       };
     }
 
@@ -542,6 +556,9 @@ export function AppProvider({ children }) {
       canDeleteMatch: (match) => canDeleteMatch(match, state.players, userRef.current, playerMatchesUser),
       mayDelete: (kind, id) => mayDeleteItem(state, access, userRef.current, kind, id),
       mayClone: (id) => mayCloneMatch(access, id),
+      mayScore: (match) => mayScore(state, access, userRef.current, match),
+      transferTargets: (match) => transferTargets(state, match),
+      correctionWindow: (match) => (access.all ? { open: true, until: null } : correctionWindow(match)),
       // Captains correct their own side; the person who created (and scores) the match may correct both; admins too.
       correctionSides: (match) => {
         const sides = captainSides(match, state.players, userRef.current, playerMatchesUser);

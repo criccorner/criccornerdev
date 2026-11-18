@@ -17,9 +17,14 @@ export function searchPlayers(players, query, exclude = [], limit = 20) {
     const pd = digits(p.phone);
     let hit = null;
     if (looksNumeric && pd) {
-      // compare the last 9 digits so +61 434 916 595, 0434916595 and 434916595 all match
-      const a = qd.slice(-9), b = pd.slice(-9);
-      if (qd.length >= 9 ? a === b : pd.includes(qd)) hit = { by: "mobile", exact: qd.length >= 9 && a === b, rank: qd.length >= 9 ? 0 : 3 };
+      // A number can be typed many ways: +61 434 916 595, 0434916595, 434916595, +61 0434 916 595 (or 09876543210 for a
+      // 10-digit national number) - and partway through, at any length. So compare every sensible reading of what was
+      // typed (as is, without leading zeros, without a trunk "0" after a country code) against the stored digits.
+      const reads = new Set([qd, qd.replace(/^0+/, "")]);
+      for (let i = 1; i <= 4 && i < qd.length; i++) if (qd[i] === "0") reads.add(qd.slice(0, i) + qd.slice(i + 1));
+      const usable = [...reads].filter((r) => r.length >= 3);
+      if (usable.some((r) => r.length >= 9 && pd.endsWith(r))) hit = { by: "mobile", exact: true, rank: 0 };
+      else if (usable.some((r) => pd.includes(r))) hit = { by: "mobile", exact: false, rank: 3 };
     }
     if (!hit && q.includes("@") && email) {
       if (email === q) hit = { by: "email", exact: true, rank: 0 };

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { matchWhen } from "../utils/datetime";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
@@ -23,6 +23,11 @@ export function notificationsFor({ matches, teams, players, access, now }) {
 }
 
 export default function NotificationsScreen({ navigation }) {
+  // Opened through navigate("Matches", { screen: "Notifications" }): forget that jump so the Matches tab opens normally next time.
+  useEffect(() => {
+    const tab = navigation.getParent && navigation.getParent();
+    if (tab && tab.setParams) tab.setParams({ screen: undefined, params: undefined, initial: undefined });
+  }, [navigation]);
   const { matches, teams, players } = useAppState();
   const dispatch = useAppDispatch();
   const access = useAccess();

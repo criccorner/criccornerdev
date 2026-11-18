@@ -18,9 +18,11 @@ export default function RegisterScreen({ navigation }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [exists, setExists] = useState(false); // the email already has an account
 
   const submit = async () => {
     setError("");
+    setExists(false);
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
@@ -30,6 +32,7 @@ export default function RegisterScreen({ navigation }) {
     setBusy(false);
     if (!r.ok) {
       setError(r.error);
+      setExists(!!r.exists);
       return;
     }
     if (r.signedIn) return; // email confirmation is off: the app opens automatically
@@ -55,6 +58,16 @@ export default function RegisterScreen({ navigation }) {
       <FormField label="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {exists ? (
+        <View style={styles.existsRow}>
+          <Pressable onPress={() => navigation.navigate("Login")} style={styles.existsBtn} accessibilityLabel="Go to log in">
+            <Text style={styles.existsText}>Log in</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate("ForgotPassword")} style={styles.existsBtn} accessibilityLabel="Forgot password">
+            <Text style={styles.existsText}>Forgot password</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <Button title="Register" onPress={submit} loading={busy} />
 
       <SocialButtons />
@@ -67,6 +80,9 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  existsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
+  existsBtn: { flex: 1, borderWidth: 1.5, borderColor: colors.primary, borderRadius: radius.md, paddingVertical: 10, alignItems: "center" },
+  existsText: { color: colors.primary, fontWeight: "800" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.md },
   chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },

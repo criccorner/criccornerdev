@@ -14,6 +14,7 @@ import SetupNeededScreen from "./screens/SetupNeededScreen";
 import SyncBanner from "./components/SyncBanner";
 import InviteWatcher from "./invite/InviteWatcher";
 import ShareWatcher from "./share/ShareWatcher";
+import ScreenTracker from "./admin/ScreenTracker";
 import { parseShareUrl, setPendingShare } from "./share/links";
 import { parseInviteUrl, setPendingInvite } from "./invite/links";
 import { navigationRef } from "./navigation/navRef";
@@ -55,6 +56,7 @@ function DataGate({ user }) {
       <SeedSelf user={user} />
       <InviteWatcher />
       <ShareWatcher />
+      <ScreenTracker />
       <View style={{ flex: 1 }}>
         <RootNavigator />
       </View>

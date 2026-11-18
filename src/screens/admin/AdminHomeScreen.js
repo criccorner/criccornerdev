@@ -61,11 +61,13 @@ export default function AdminHomeScreen({ navigation }) {
         </View>
         <Card>
           <Row label="💬 Issues & Suggestions" hint="Review, set status, and reply" onPress={() => navigation.navigate("AdminFeedback")} />
+          <Row label="🛍️ Cricket Marketplace Requests" hint="Approve or reject marketplace listings" onPress={() => navigation.navigate("AdminMarketplace")} />
+          <Row label="🛠️ Fix duplicate contacts" hint="Find and fix players sharing a mobile number or email" onPress={() => navigation.navigate("FixContacts")} />
           <Row label="📣 App sponsors" hint="Add sponsors shown on matches in a city" onPress={() => navigation.navigate("AdminSponsors")} />
           <Row label="👥 Registered Users" hint="View, edit, make admin, or block" onPress={() => navigation.navigate("AdminUsers")} />
           <Row label="🔎 All players, teams & tournaments" hint="Search everything, then edit or delete" onPress={() => navigation.navigate("AdminRecords")} />
           <Row label="📁 What I created" hint="Players, teams and tournaments I own" onPress={() => navigation.navigate("AdminMyRecords")} />
-          <Row label="🕒 Login & activity log" hint="Who logged in and what they did, by date" onPress={() => navigation.navigate("AdminActivity")} />
+          <Row label="🕒 User activity log" hint="Logins, screen visits, features used and actions, by date" onPress={() => navigation.navigate("AdminActivity")} />
         </Card>
       </View>
     </AdminGuard>

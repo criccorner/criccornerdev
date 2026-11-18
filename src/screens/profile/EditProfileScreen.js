@@ -34,6 +34,8 @@ export default function EditProfileScreen({ navigation }) {
   const [bowlingStyle, setBowlingStyle] = useState(user.bowlingStyle || null);
   const [city, setCity] = useState(user.city || "");
   const [phone, setPhone] = useState(user.phone || "");
+  const me = players.find((p) => playerMatchesUser(p, user));
+  const [available, setAvailable] = useState(!!(me && me.availableToJoin)); // "available to join a team"
   const [pendingUri, setPendingUri] = useState(null); // newly chosen, not saved yet
   const [removePhoto, setRemovePhoto] = useState(false);
   const [error, setError] = useState("");
@@ -52,7 +54,7 @@ export default function EditProfileScreen({ navigation }) {
 
   const fromGallery = async () => {
     try {
-      choose(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6 }));
+      choose(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.6 }));
     } catch (e) {
       Alert.alert("Couldn't open photos", "Please try again.");
     }
@@ -86,7 +88,7 @@ export default function EditProfileScreen({ navigation }) {
       return;
     }
     // Keep this person's entry in the Players tab (used when scoring) in sync.
-    const changes = { name: name.trim(), role, battingStyle, bowlingStyle, city: city.trim() || null };
+    const changes = { name: name.trim(), role, battingStyle, bowlingStyle, city: city.trim() || null, availableToJoin: available };
     const newPhone = phone.trim() || null;
     const updated = players.map((p) => (playerMatchesUser(p, user) ? { ...p, ...changes, ...(newPhone ? { phone: newPhone } : {}) } : p));
     dispatch({ type: "HYDRATE", payload: { players: updated } });
@@ -134,6 +136,14 @@ export default function EditProfileScreen({ navigation }) {
 
         <FormField label="City (optional)" value={city} onChangeText={setCity} maxLength={60} placeholder="e.g. Melbourne" />
 
+        <Pressable onPress={() => setAvailable((a) => !a)} style={styles.flagRow} accessibilityRole="switch" accessibilityState={{ checked: available }}>
+          <View style={[styles.box, available && styles.boxOn]}>{available ? <Text style={{ color: "#fff", fontWeight: "900" }}>✓</Text> : null}</View>
+          <View style={{ flex: 1 }}>
+            <Text style={typography.body}>Available to join a team</Text>
+            <Text style={typography.muted}>Teams that are looking for a player can find you (your playing role and city are shown). They can message you.</Text>
+          </View>
+        </Pressable>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button title="Save Changes" onPress={save} loading={busy} />
       </ScrollView>
@@ -150,5 +160,8 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontWeight: "600" },
+  flagRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  box: { width: 26, height: 26, borderRadius: 6, borderWidth: 2, borderColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  boxOn: { backgroundColor: colors.primary },
   error: { color: colors.danger, marginBottom: spacing.md },
 });

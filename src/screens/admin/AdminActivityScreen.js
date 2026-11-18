@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import AdminGuard from "./AdminGuard";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
-import { searchActivity, dayText } from "../../admin/activity";
+import { searchActivity, dayText, KINDS, kindOf, summarizeUsers, topScreens } from "../../admin/activity";
 import { colors, spacing, typography, radius } from "../../utils/theme";
 
 const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return dayText(d); };
@@ -19,6 +19,16 @@ export default function AdminActivityScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [kind, setKind] = useState("all");
+  const [view, setView] = useState("timeline"); // timeline | users
+  const shown = useMemo(() => (result ? result.items.filter((i) => kind === "all" || kindOf(i.action) === kind) : []), [result, kind]);
+  const byUser = useMemo(() => (result ? summarizeUsers(shown) : []), [result, shown]);
+  const top = useMemo(() => (result ? topScreens(result.items) : []), [result]);
+  const counts = useMemo(() => {
+    const c = { login: 0, visit: 0, action: 0 };
+    if (result) for (const i of result.items) c[kindOf(i.action)] += 1;
+    return c;
+  }, [result]);
 
   const quick = (n) => { setFrom(daysAgo(n)); setTo(daysAgo(0)); };
 
@@ -62,24 +72,62 @@ export default function AdminActivityScreen() {
           <>
             <View style={styles.totals}>
               <Text style={styles.totalText}>Total users: {result.totalUsers}</Text>
-              <Text style={typography.muted}>{result.loggedInUsers} logged in · {result.items.length} activities</Text>
+              <Text style={typography.muted}>
+                {result.loggedInUsers} logged in · {counts.login} logins · {counts.visit} visits · {counts.action} actions
+              </Text>
+              {top.length ? <Text style={[typography.muted, { marginTop: 2 }]}>Most used: {top.map(([n, c]) => `${n} (${c})`).join(" · ")}</Text> : null}
             </View>
-            <FlatList
-              data={result.items}
-              keyExtractor={(i) => String(i.id)}
-              contentContainerStyle={{ paddingBottom: spacing.xl }}
-              ListEmptyComponent={<Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>No activity in this period.</Text>}
-              renderItem={({ item }) => (
-                <Card>
-                  <View style={styles.row}>
-                    <Text style={[typography.h3, { flex: 1 }]}>{item.name}</Text>
-                    <Text style={typography.muted}>{fmt(item.at)}</Text>
-                  </View>
-                  <Text style={typography.muted}>{[item.phone, item.email].filter(Boolean).join(" · ") || "No contact details"}</Text>
-                  <Text style={[typography.body, { marginTop: 4 }]}>{item.detail}</Text>
-                </Card>
-              )}
-            />
+            <View style={styles.chipsRow}>
+              {KINDS.map(([k, label]) => (
+                <Pressable key={k} onPress={() => setKind(k)} style={[styles.chip, kind === k && styles.chipOn]}>
+                  <Text style={[styles.chipText, kind === k && { color: "#fff" }]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.chipsRow}>
+              {[["timeline", "Timeline"], ["users", "By user"]].map(([k, label]) => (
+                <Pressable key={k} onPress={() => setView(k)} style={[styles.chip, view === k && styles.chipOn]}>
+                  <Text style={[styles.chipText, view === k && { color: "#fff" }]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {view === "users" ? (
+              <FlatList
+                data={byUser}
+                keyExtractor={(u) => String(u.userId)}
+                contentContainerStyle={{ paddingBottom: spacing.xl }}
+                ListEmptyComponent={<Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>No activity in this period.</Text>}
+                renderItem={({ item: u }) => (
+                  <Card>
+                    <View style={styles.row}>
+                      <Text style={[typography.h3, { flex: 1 }]}>{u.name}</Text>
+                      <Text style={typography.muted}>Last seen {fmt(u.last)}</Text>
+                    </View>
+                    <Text style={typography.muted}>{[u.phone, u.email].filter(Boolean).join(" · ") || "No contact details"}</Text>
+                    <Text style={[typography.body, { marginTop: 4 }]}>
+                      {u.events} events · {u.logins} logins · {u.visits} visits · {u.actions} actions · {u.screens} different screens · active on {u.activeDays} day{u.activeDays === 1 ? "" : "s"}
+                    </Text>
+                  </Card>
+                )}
+              />
+            ) : (
+              <FlatList
+                data={shown}
+                keyExtractor={(i) => String(i.id)}
+                contentContainerStyle={{ paddingBottom: spacing.xl }}
+                ListEmptyComponent={<Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>No activity in this period.</Text>}
+                renderItem={({ item }) => (
+                  <Card>
+                    <View style={styles.row}>
+                      <Text style={[typography.h3, { flex: 1 }]}>{item.name}</Text>
+                      <Text style={typography.muted}>{fmt(item.at)}</Text>
+                    </View>
+                    <Text style={typography.muted}>{[item.phone, item.email].filter(Boolean).join(" · ") || "No contact details"}</Text>
+                    <Text style={[typography.body, { marginTop: 4 }]}>{item.action === "screen_view" ? `👁️ ${item.detail}` : item.action === "app_visit" ? "📱 Opened the app" : item.detail}</Text>
+                  </Card>
+                )}
+              />
+            )}
           </>
         ) : null}
       </View>
@@ -95,6 +143,8 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.surface },
   chipText: { color: colors.text, fontWeight: "600" },
   error: { color: colors.danger, marginBottom: spacing.sm },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.sm },
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   totals: { paddingVertical: spacing.md },
   totalText: { fontSize: 20, fontWeight: "800", color: colors.primary },
   row: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },

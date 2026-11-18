@@ -116,6 +116,14 @@ export function reducer(state, action) {
       return { ...state, teams: state.teams.map((t) => (t.id === teamId ? { ...t, ...f } : t)) };
     }
 
+    case "SET_TEAM_LOOKING": {
+      // The team's owner says which kind of player the team is looking for (shown in Find -> a team to join).
+      const { teamId, lookingFor } = action.payload;
+      if (!state.teams.some((t) => t.id === teamId)) return state;
+      const list = Array.isArray(lookingFor) ? lookingFor.filter((x) => typeof x === "string") : [];
+      return { ...state, teams: state.teams.map((t) => (t.id === teamId ? { ...t, lookingFor: list } : t)) };
+    }
+
     case "DELETE_TEAM": {
       // A team that has matches keeps them (the scorecards need it), so it can only be deleted once it has none.
       const { teamId } = action.payload;

@@ -10,5 +10,11 @@ export const leaveScoring = ({ navigation, route }) => ({
     if (top && st.index > 0 && st.key) {
       navigation.dispatch({ type: "POP_TO_TOP", target: st.key });
     }
+    // A jump like navigate("Matches", { screen: "Notifications" }) leaves { screen } on the tab; clear it, or the tab
+    // re-opens that screen every time it is shown again.
+    const p = tabRoute && tabRoute.params;
+    if (p && (p.screen || p.params || p.initial !== undefined)) {
+      navigation.dispatch({ type: "SET_PARAMS", payload: { params: { screen: undefined, params: undefined, initial: undefined } }, source: route.key });
+    }
   },
 });

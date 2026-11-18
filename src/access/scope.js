@@ -212,6 +212,7 @@ export function guardAction(raw, access, user, action, { fingerprint, canDeleteM
     case "SET_TEAM_INVITE":
     case "SET_TEAM_LOGO":
     case "SET_TEAM_CITY":
+    case "SET_TEAM_LOOKING":
     case "UPDATE_TEAM":
       return can("teams", p.teamId) ? action : null;
     case "DELETE_TEAM":

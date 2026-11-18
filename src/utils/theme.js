@@ -70,9 +70,97 @@ export const THEMES = {
     spacing: { xs: 3, sm: 6, md: 12, lg: 20, xl: 28 },
     design: { shadowOpacity: 0.05, shadowRadius: 5, cardBorder: 1, heading: "800" },
   },
+  emerald: {
+    label: "Emerald",
+    blurb: "Fresh green with a coral accent, the bright team-icon look.",
+    colors: { primary: "#047857", primaryDark: "#065F46", accent: "#F97316", background: "#F0FAF5", surface: "#FFFFFF", border: "#CDE9DC", text: "#0B2A20", textMuted: "#55766A" },
+    radius: { sm: 8, md: 14, lg: 22, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.07, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
+  teal: {
+    label: "Teal & Mint",
+    blurb: "Teal with mint highlights. Calm and modern.",
+    colors: { primary: "#0F766E", primaryDark: "#115E59", accent: "#EC4899", background: "#F0FAF9", surface: "#FFFFFF", border: "#CCE8E5", text: "#0B2927", textMuted: "#5A7977" },
+    radius: { sm: 6, md: 12, lg: 18, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.06, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
+  forest: {
+    label: "Forest",
+    blurb: "Dark forest green with amber. Classic and grounded.",
+    colors: { primary: "#14532D", primaryDark: "#0F3D21", accent: "#D97706", background: "#F4F8F2", surface: "#FFFFFF", border: "#D6E3D0", text: "#122217", textMuted: "#62705F" },
+    radius: { sm: 6, md: 12, lg: 18, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.05, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
+  indigo: {
+    label: "Indigo",
+    blurb: "Deep indigo with sky blue. Crisp and professional.",
+    colors: { primary: "#3730A3", primaryDark: "#2A2480", accent: "#0EA5E9", background: "#F3F4FC", surface: "#FFFFFF", border: "#D9DBF2", text: "#14163A", textMuted: "#62658C" },
+    radius: { sm: 4, md: 8, lg: 12, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.1, shadowRadius: 8, cardBorder: 0, heading: "800" },
+  },
+  berry: {
+    label: "Berry",
+    blurb: "Rich berry with lime. Bold and playful.",
+    colors: { primary: "#9D174D", primaryDark: "#721138", accent: "#65A30D", background: "#FDF2F7", surface: "#FFFFFF", border: "#F1D3E1", text: "#2D0A1C", textMuted: "#7C5568" },
+    radius: { sm: 8, md: 14, lg: 22, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.08, shadowRadius: 8, cardBorder: 1, heading: "800" },
+  },
+  rose: {
+    label: "Rose",
+    blurb: "Soft rose with teal. Warm and friendly.",
+    colors: { primary: "#BE185D", primaryDark: "#8F1245", accent: "#0D9488", background: "#FFF1F6", surface: "#FFFFFF", border: "#F6D5E3", text: "#2E0C1E", textMuted: "#80586B" },
+    radius: { sm: 8, md: 14, lg: 22, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.08, shadowRadius: 8, cardBorder: 0, heading: "700" },
+  },
+  amber: {
+    label: "Amber Gold",
+    blurb: "Golden amber with deep navy. Sunny and clear.",
+    colors: { primary: "#B45309", primaryDark: "#8A3F07", accent: "#1D4ED8", background: "#FFFBEB", surface: "#FFFFFF", border: "#F1E1B8", text: "#2B1D07", textMuted: "#7D6A43" },
+    radius: { sm: 6, md: 12, lg: 18, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.06, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
+  sky: {
+    label: "Sky Blue",
+    blurb: "Bright sky blue with orange. Light and airy.",
+    colors: { primary: "#0369A1", primaryDark: "#075985", accent: "#EA580C", background: "#F0F9FF", surface: "#FFFFFF", border: "#CFE6F5", text: "#0B2536", textMuted: "#5A7A8E" },
+    radius: { sm: 8, md: 14, lg: 22, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.06, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
+  coral: {
+    label: "Coral",
+    blurb: "Coral red with deep teal. Energetic.",
+    colors: { primary: "#DC2626", primaryDark: "#A71A1A", accent: "#0F766E", background: "#FFF5F5", surface: "#FFFFFF", border: "#F5D5D5", text: "#2B0E0E", textMuted: "#7E5B5B" },
+    radius: { sm: 6, md: 12, lg: 18, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.07, shadowRadius: 8, cardBorder: 1, heading: "800" },
+  },
+  slate: {
+    label: "Slate",
+    blurb: "Neutral slate with violet. Quiet and minimal.",
+    colors: { primary: "#334155", primaryDark: "#1E293B", accent: "#7C3AED", background: "#F1F5F9", surface: "#FFFFFF", border: "#D8DFE8", text: "#0F172A", textMuted: "#5B6678" },
+    radius: { sm: 4, md: 8, lg: 12, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.04, shadowRadius: 8, cardBorder: 1, heading: "700" },
+  },
+  graphite: {
+    label: "Graphite & Lime",
+    blurb: "Charcoal with lime green. Sporty and high contrast.",
+    colors: { primary: "#1F2937", primaryDark: "#111827", accent: "#65A30D", background: "#F3F4F6", surface: "#FFFFFF", border: "#D9DCE1", text: "#0F1115", textMuted: "#5F6673" },
+    radius: { sm: 4, md: 8, lg: 12, pill: 999 },
+    spacing: base.spacing,
+    design: { shadowOpacity: 0.14, shadowRadius: 8, cardBorder: 0, heading: "800" },
+  },
 };
 
-export const THEME_ORDER = ["lagoon", "classic", "ocean", "sunset", "royal", "midnight", "crimson"];
+export const THEME_ORDER = ["lagoon", "classic", "ocean", "sunset", "royal", "midnight", "crimson", "emerald", "teal", "forest", "indigo", "berry", "rose", "amber", "sky", "coral", "slate", "graphite"];
 
 // These objects are exported once and then UPDATED IN PLACE by applyTheme.
 export const colors = {};

@@ -5,6 +5,8 @@ import { colors, spacing, typography } from "../utils/theme";
 import FormField from "../components/FormField";
 import Button from "../components/Button";
 import CityPicker from "../components/CityPicker";
+import { Pressable } from "react-native";
+import { LOOKING_FOR } from "../utils/finder";
 
 // Rename a team. Only the people who can manage the team (its owner, the person who created it, admins) get here.
 export default function EditTeamScreen({ route, navigation }) {
@@ -14,6 +16,8 @@ export default function EditTeamScreen({ route, navigation }) {
   const { canEdit } = useAccess();
   const team = teams.find((t) => t.id === teamId);
   const [name, setName] = useState(team ? team.name : "");
+  const [looking, setLooking] = useState(team && Array.isArray(team.lookingFor) ? team.lookingFor : []);
+  const toggleLooking = (o) => setLooking((cur) => (o === "Any" ? (cur.includes("Any") ? [] : ["Any"]) : cur.includes(o) ? cur.filter((x) => x !== o) : [...cur.filter((x) => x !== "Any"), o]));
   const [place, setPlace] = useState(team && team.city ? { name: team.city, label: team.cityLabel || team.city, lat: team.cityLat, lng: team.cityLng } : null);
 
   if (!team) {
@@ -44,6 +48,7 @@ export default function EditTeamScreen({ route, navigation }) {
     const clash = teams.some((t) => t.id !== teamId && t.name.trim().toLowerCase() === clean.toLowerCase());
     const go = () => {
       dispatch({ type: "UPDATE_TEAM", payload: { teamId, name: clean } });
+      dispatch({ type: "SET_TEAM_LOOKING", payload: { teamId, lookingFor: looking } });
       if ((place ? place.name : null) !== (team.city || null)) dispatch({ type: "SET_TEAM_CITY", payload: { teamId, place } });
       Alert.alert("Team updated", `${clean} has been updated.`, [{ text: "OK", onPress: () => navigation.goBack() }]);
     };
@@ -61,6 +66,14 @@ export default function EditTeamScreen({ route, navigation }) {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <FormField label="Team Name" value={name} onChangeText={setName} placeholder="e.g. Mumbai Strikers" maxLength={40} />
       <CityPicker label="City" value={place} onChange={setPlace} />
+      <Text style={typography.label}>LOOKING FOR (SHOWN TO PLAYERS WHO ARE LOOKING FOR A TEAM)</Text>
+      <View style={styles.chips}>
+        {LOOKING_FOR.map((o) => (
+          <Pressable key={o} onPress={() => toggleLooking(o)} style={[styles.chip, looking.includes(o) && styles.chipOn]}>
+            <Text style={[styles.chipText, looking.includes(o) && { color: "#fff" }]}>{o}</Text>
+          </Pressable>
+        ))}
+      </View>
       <Text style={[typography.muted, { marginBottom: spacing.md }]}>
         The new name shows everywhere: matches, scorecards, tournaments and stats. Results of finished matches are updated too.
       </Text>
@@ -71,4 +84,8 @@ export default function EditTeamScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { padding: spacing.md, backgroundColor: colors.background, flexGrow: 1 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6, marginBottom: spacing.md },
+  chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.text, fontWeight: "600" },
 });

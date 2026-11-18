@@ -1,6 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Alert, Pressable, ScrollView, Linking } from "react-native";
-import { HOWTO_URL } from "../share/config";
+import { View, Text, StyleSheet, Alert, Pressable, ScrollView } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { photoUriFor } from "../profile/store";
 import Avatar from "../components/Avatar";
@@ -66,14 +65,14 @@ export default function ProfileScreen({ navigation }) {
         </Card>
 
         <Card>
+          <MenuRow label="🔎 Find (teams & grounds)" onPress={() => navigation.navigate("Find")} />
+          <MenuRow label="🛍️ Cricket Marketplace (Sell / Browse)" onPress={() => navigation.navigate("Marketplace")} />
+          <MenuRow label="💬 Messages" onPress={() => navigation.navigate("ChatList")} />
           <MenuRow label="🔑 Change password" onPress={() => navigation.navigate("ChangePassword")} />
-          <MenuRow label="🎬 How to use CricCorner (video)" onPress={() => Linking.openURL(HOWTO_URL).catch(() => {})} />
           <MenuRow label="❓ Help — how to use CricCorner" onPress={() => navigation.navigate("Help")} />
           <MenuRow label="🎨 App theme" onPress={() => navigation.navigate("Theme")} />
           <MenuRow label="💬 Report an Issue / Suggestion" onPress={() => navigation.navigate("Feedback")} />
           <MenuRow label="📋 My Submissions" onPress={() => navigation.navigate("MyFeedback")} />
-          <MenuRow label="☁️ Upload data from this phone" onPress={() => navigation.navigate("ImportLocal")} />
-          {user?.isAdmin ? <MenuRow label="🛠️ Fix duplicate contacts" onPress={() => navigation.navigate("FixContacts")} /> : null}
           {user?.isAdmin ? <MenuRow label="🛠️ Admin Panel" onPress={() => navigation.navigate("AdminHome")} /> : null}
         </Card>
 

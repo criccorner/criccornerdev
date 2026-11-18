@@ -7,6 +7,7 @@ const DESCRIBE = {
   JOIN_PLAYER_BY_CONTACT: () => "Joined as a player",
   ADD_TEAM: (a) => `Created team ${(a.payload && a.payload.name) || ""}`,
   UPDATE_TEAM: () => "Edited a team",
+  SET_TEAM_LOOKING: () => "Changed what the team is looking for",
   ADD_PLAYER_TO_TEAM: () => "Added a player to a team",
   REMOVE_PLAYER_FROM_TEAM: () => "Removed a player from a team",
   SCHEDULE_MATCH: () => "Scheduled a match",
@@ -77,4 +78,57 @@ export async function searchActivity(fromText, toText) {
   } catch (e) {
     return { ok: false, error: /relation|activity_log|404/i.test(String(e && e.message)) ? "The activity log isn't set up yet. Run activity_log.sql in Supabase." : friendlyError(e) };
   }
+}
+
+// Every kind of activity falls in one of three groups for the admin's filters and totals.
+export const KINDS = [["all", "All"], ["login", "Logins"], ["visit", "App & screen visits"], ["action", "Actions"]];
+export const kindOf = (action) => (action === "login" ? "login" : action === "screen_view" || action === "app_visit" ? "visit" : "action");
+
+// One row per person: how much they used the app in the period (engagement).
+export function summarizeUsers(items) {
+  const m = new Map();
+  for (const i of items) {
+    let u = m.get(i.userId);
+    if (!u) { u = { userId: i.userId, name: i.name, phone: i.phone, email: i.email, events: 0, logins: 0, visits: 0, actions: 0, screens: new Set(), days: new Set(), last: 0 }; m.set(i.userId, u); }
+    u.events += 1;
+    const k = kindOf(i.action);
+    if (k === "login") u.logins += 1; else if (k === "visit") u.visits += 1; else u.actions += 1;
+    if (i.action === "screen_view") u.screens.add(i.detail);
+    u.days.add(new Date(i.at).toDateString());
+    if (i.at > u.last) u.last = i.at;
+  }
+  return [...m.values()].map((u) => ({ ...u, screens: u.screens.size, activeDays: u.days.size })).sort((a, b) => b.events - a.events);
+}
+
+// Which screens / features are used most (from screen visits).
+export function topScreens(items, limit = 8) {
+  const c = new Map();
+  for (const i of items) if (i.action === "screen_view") c.set(i.detail, (c.get(i.detail) || 0) + 1);
+  return [...c.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+
+const SCREEN_NAMES = {
+  Home: "Home", MatchesList: "Matches", Matches: "Matches", Players: "Players", PlayersList: "Players", Teams: "Teams", TeamsList: "Teams", Tournaments: "Tournaments",
+  Profile: "Profile", ProfileHome: "Profile", LiveScoring: "Live scoring", Scorecard: "Scorecard", ScheduleMatch: "Schedule match", Find: "Find", FindTeams: "Find: available teams",
+  FindGrounds: "Find: grounds", FindPlayers: "Find: a player", FindTeamToJoin: "Find: a team to join", Marketplace: "Marketplace", MarketplaceBrowse: "Marketplace: browse",
+  MarketplaceSell: "Marketplace: sell", ChatList: "Messages", Chat: "Chat", Help: "Help", Theme: "Theme", Notifications: "Notifications", EditProfile: "Edit profile",
+  AdminHome: "Admin panel", MyStats: "My stats", TeamDetail: "Team details", TournamentDetail: "Tournament details", Feedback: "Report an issue",
+};
+export const screenLabel = (name) => SCREEN_NAMES[name] || String(name || "").replace(/([a-z])([A-Z])/g, "$1 $2");
+
+const lastShown = new Map();
+// Records that the person opened a screen (once per screen per 30 seconds) - feeds the admin's engagement view.
+export function trackScreen(user, routeName) {
+  if (!user || !routeName) return;
+  const now = Date.now();
+  if (lastShown.get(routeName) && now - lastShown.get(routeName) < 30000) return;
+  lastShown.set(routeName, now);
+  logActivity(user, "screen_view", screenLabel(routeName));
+}
+let lastVisit = 0;
+export function trackAppVisit(user) {
+  const now = Date.now();
+  if (now - lastVisit < 10 * 60 * 1000) return; // a new visit = back in the app after 10+ minutes
+  lastVisit = now;
+  logActivity(user, "app_visit", "Opened the app");
 }

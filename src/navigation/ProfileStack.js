@@ -18,6 +18,17 @@ import AdminUserEditScreen from "../screens/admin/AdminUserEditScreen";
 import AdminSponsorsScreen from "../screens/admin/AdminSponsorsScreen";
 import DeleteAccountScreen from "../screens/profile/DeleteAccountScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
+import FindScreen from "../screens/FindScreen";
+import FindTeamsScreen from "../screens/FindTeamsScreen";
+import FindGroundsScreen from "../screens/FindGroundsScreen";
+import MarketplaceScreen from "../screens/marketplace/MarketplaceScreen";
+import MarketplaceBrowseScreen from "../screens/marketplace/MarketplaceBrowseScreen";
+import MarketplaceSellScreen from "../screens/marketplace/MarketplaceSellScreen";
+import AdminMarketplaceScreen from "../screens/marketplace/AdminMarketplaceScreen";
+import FindPlayersScreen from "../screens/FindPlayersScreen";
+import FindTeamToJoinScreen from "../screens/FindTeamToJoinScreen";
+import ChatListScreen from "../screens/chat/ChatListScreen";
+import ChatScreen from "../screens/chat/ChatScreen";
 import LegalScreen from "../screens/LegalScreen";
 import HelpScreen from "../screens/HelpScreen";
 import { colors } from "../utils/theme";
@@ -37,6 +48,17 @@ export default function ProfileStack() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: "Change Password" }} />
       <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: "Delete Account" }} />
+      <Stack.Screen name="Find" component={FindScreen} options={{ title: "Find" }} />
+      <Stack.Screen name="FindTeams" component={FindTeamsScreen} options={{ title: "Available Teams" }} />
+      <Stack.Screen name="FindGrounds" component={FindGroundsScreen} options={{ title: "Available Grounds" }} />
+      <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ title: "Cricket Marketplace" }} />
+      <Stack.Screen name="MarketplaceBrowse" component={MarketplaceBrowseScreen} options={{ title: "Available Cricket Marketplace" }} />
+      <Stack.Screen name="MarketplaceSell" component={MarketplaceSellScreen} options={{ title: "Sell" }} />
+      <Stack.Screen name="AdminMarketplace" component={AdminMarketplaceScreen} options={{ title: "Marketplace Requests" }} />
+      <Stack.Screen name="FindPlayers" component={FindPlayersScreen} options={{ title: "Looking for a player" }} />
+      <Stack.Screen name="FindTeamToJoin" component={FindTeamToJoinScreen} options={{ title: "A team to join" }} />
+      <Stack.Screen name="ChatList" component={ChatListScreen} options={{ title: "Messages" }} />
+      <Stack.Screen name="Chat" component={ChatScreen} options={{ title: "Chat" }} />
       <Stack.Screen name="Legal" component={LegalScreen} options={{ title: "Terms & Copyright" }} />
       <Stack.Screen name="Help" component={HelpScreen} options={{ title: "Help" }} />
       <Stack.Screen name="Theme" component={ThemeScreen} options={{ title: "App Theme" }} />

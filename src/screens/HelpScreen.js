@@ -1,11 +1,23 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from "react-native";
+import React, { useLayoutEffect, useState } from "react";
+import { View, Text, ScrollView, Pressable, TextInput, Linking, StyleSheet } from "react-native";
+import { HOWTO_URL } from "../share/config";
 import { colors, spacing, typography, radius } from "../utils/theme";
 import Card from "../components/Card";
 import { HELP_TOPICS, searchHelp } from "../help/content";
 
 // How to use CricCorner. Works before login too (opened from the login screen).
-export default function HelpScreen() {
+export default function HelpScreen({ navigation }) {
+  // The walk-through video link sits in the top corner of this page.
+  useLayoutEffect(() => {
+    if (!navigation || !navigation.setOptions) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={() => Linking.openURL(HOWTO_URL).catch(() => {})} hitSlop={8} accessibilityRole="link">
+          <Text style={{ color: "#fff", fontWeight: "800" }}>🎬 Video</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState({}); // topic id or "id:index" -> true
   const searching = query.trim().length > 0;

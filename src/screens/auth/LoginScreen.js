@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Text, Pressable, StyleSheet, Linking } from "react-native";
 import { HOWTO_URL } from "../../share/config";
 import AuthLayout from "../../components/AuthLayout";
+import PasswordField from "../../components/PasswordField";
 import FormField from "../../components/FormField";
 import Button from "../../components/Button";
 import SocialButtons from "../../components/SocialButtons";
@@ -32,7 +33,7 @@ export default function LoginScreen({ navigation, route }) {
   return (
     <AuthLayout title="Welcome back" subtitle="Log in with your email and password.">
       <FormField label="Email" value={identifier} onChangeText={setIdentifier} placeholder="you@email.com" autoCapitalize="none" keyboardType="email-address" autoComplete="username" textContentType="username" autoCorrect={false} />
-      <FormField label="Password" value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoComplete="current-password" textContentType="password" />
+      <PasswordField label="Password" value={password} onChangeText={setPassword} autoCapitalize="none" autoComplete="current-password" textContentType="password" />
       {notice ? <Text style={styles.error}>{notice}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button title="Log In" onPress={submit} loading={busy} />

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, ScrollView, Pressable, Keyboard, Alert, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth/AuthContext";
 import { colors, spacing, typography, radius } from "../../utils/theme";
@@ -15,6 +15,20 @@ export default function ChatScreen({ route, navigation }) {
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState(p.otherId ? "ready" : "finding"); // finding | ready | none
   const scroll = useRef(null);
+  // Lift the message box above the keyboard (the phone no longer resizes the screen for us): measure where this screen
+  // ends and where the keyboard starts, and pad the difference.
+  const box = useRef(null);
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      const top = e && e.endCoordinates ? e.endCoordinates.screenY : null;
+      if (top == null || !box.current) return;
+      box.current.measureInWindow((x, y, w, h) => setLift(Math.max(0, Math.round(y + h - top))));
+      setTimeout(() => scroll.current && scroll.current.scrollToEnd({ animated: true }), 120);
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => setLift(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   useEffect(() => {
     navigation.setOptions({ title: p.name ? `💬 ${p.name}` : "Chat" });
@@ -66,7 +80,7 @@ export default function ChatScreen({ route, navigation }) {
     );
   }
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={80}>
+    <View ref={box} collapsable={false} style={{ flex: 1, backgroundColor: colors.background, paddingBottom: lift }}>
       <ScrollView ref={scroll} contentContainerStyle={{ padding: spacing.md }} onContentSizeChange={() => scroll.current && scroll.current.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled">
         {msgs.length === 0 ? <Text style={[typography.muted, { textAlign: "center" }]}>Say hello 👋 - messages here are private between the two of you.</Text> : null}
         {msgs.map((m) => {
@@ -87,7 +101,7 @@ export default function ChatScreen({ route, navigation }) {
           <Text style={{ color: "#fff", fontWeight: "800" }}>Send</Text>
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

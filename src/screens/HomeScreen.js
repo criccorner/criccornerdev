@@ -24,11 +24,10 @@ function StatBox({ label, value, onPress }) {
 
 export default function HomeScreen({ navigation }) {
   const { teams: allTeams } = useAppState();
-  const { mine, createdByMe, canEdit } = useAccess();
+  const { mine, canEdit } = useAccess();
   const all = useAllState();
   const { matches } = mine;
   const [searching, setSearching] = useState(false);
-  const open = (tab, screen) => () => navigation.navigate(tab, { screen });
   const liveMatches = matches.filter((m) => m.status === "live");
 
   return (
@@ -51,12 +50,6 @@ export default function HomeScreen({ navigation }) {
           <StatBox label="Players" value={all.players.length} />
           <StatBox label="Teams" value={all.teams.length} />
           <StatBox label="Tournaments" value={all.tournaments.length} />
-        </View>
-        <Text style={styles.sectionLabel}>CREATED BY ME</Text>
-        <View style={styles.statsRow}>
-          <StatBox label="Players" value={createdByMe.players.length} onPress={open("Players", "PlayersList")} />
-          <StatBox label="Teams" value={createdByMe.teams.length} onPress={open("Teams", "TeamsList")} />
-          <StatBox label="Tournaments" value={createdByMe.tournaments.length} onPress={open("Tournaments", "TournamentsList")} />
         </View>
 
         {liveMatches.length > 0 && (

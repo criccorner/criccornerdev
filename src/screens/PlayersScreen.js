@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, Text, FlatList, StyleSheet, Pressable, TextInput } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { rest } from "../cloud/api";
 import { useAccess } from "../context/AppContext";
 import { contactLine } from "../access/mask";
 import { hasContact } from "../access/scope";
@@ -12,10 +14,23 @@ import Badge from "../components/Badge";
 
 export default function PlayersScreen({ navigation }) {
   const { mine, canEdit, isAdmin, createdByMe } = useAccess();
-  // Only the dummy players this person created (no mobile number or email). Registered players are found by
-  // search when adding to a team, and admins see everyone under Admin panel > All records.
-  const players = createdByMe.players.filter((p) => !hasContact(p));
   const { user } = useAuth();
+  // Players you created or registered, until their mobile number or email is verified (a CricCorner account exists for it).
+  // After that the player belongs to that person and leaves your list. Your own player always stays.
+  const [verified, setVerified] = useState(() => new Set());
+  const candidates = createdByMe.players.filter((p) => hasContact(p));
+  const key = candidates.map((p) => p.id).join(",");
+  useFocusEffect(
+    useCallback(() => {
+      if (!key) { setVerified(new Set()); return undefined; }
+      let alive = true;
+      rest("rpc/verified_player_ids", { method: "POST", body: { ids: key.split(",") } })
+        .then((r) => { if (alive && Array.isArray(r.json)) setVerified(new Set(r.json)); })
+        .catch(() => { /* offline: keep showing them */ });
+      return () => { alive = false; };
+    }, [key])
+  );
+  const players = createdByMe.players.filter((p) => !hasContact(p) || playerMatchesUser(p, user) || !verified.has(p.id));
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const shown = useMemo(
@@ -53,7 +68,7 @@ export default function PlayersScreen({ navigation }) {
           ) : null}
         </View>
         <Text style={[typography.muted, { marginTop: spacing.sm }]}>
-          {q ? `${shown.length} of ${players.length} players` : players.length ? "The dummy players you created. Tap one to see their profile and stats." : "You have not created any dummy players yet. Tap + Add / Join Player."}
+          {q ? `${shown.length} of ${players.length} players` : players.length ? "Players you created or registered, until their mobile or email is verified. Tap one to see their profile and stats." : "You have not created any players yet. Tap + Add / Join Player."}
         </Text>
       </View>
       <FlatList

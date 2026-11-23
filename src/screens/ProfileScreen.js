@@ -65,7 +65,7 @@ export default function ProfileScreen({ navigation }) {
         </Card>
 
         <Card>
-          <MenuRow label="🔎 Find (teams & grounds)" onPress={() => navigation.navigate("Find")} />
+          <MenuRow label="🔎 Find (player, team to join, team to play, ground)" onPress={() => navigation.navigate("Find")} />
           <MenuRow label="🛍️ Cricket Marketplace (Sell / Browse)" onPress={() => navigation.navigate("Marketplace")} />
           <MenuRow label="💬 Messages" onPress={() => navigation.navigate("ChatList")} />
           <MenuRow label="🔑 Change password" onPress={() => navigation.navigate("ChangePassword")} />

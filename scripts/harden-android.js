@@ -116,4 +116,43 @@ if (/android:allowBackup="false"/.test(m)) {
   warn("no <application> tag found in AndroidManifest.xml");
 }
 
+// 4. Share links: let https://criccorner.github.io/criccornerdev/open.html open the app itself -------
+// (Android "App Links". Needs assetlinks.json on https://criccorner.github.io, see SHARE-LINKS.md)
+const SHARE_HOST = "criccorner.github.io";
+const SHARE_PATH = "/criccornerdev/open.html";
+m = fs.readFileSync(manifest, "utf8");
+if (m.includes(SHARE_PATH)) {
+  done("share-link app links already in the manifest");
+} else {
+  const filter =
+    '\n      <intent-filter android:autoVerify="true">\n' +
+    '        <action android:name="android.intent.action.VIEW"/>\n' +
+    '        <category android:name="android.intent.category.DEFAULT"/>\n' +
+    '        <category android:name="android.intent.category.BROWSABLE"/>\n' +
+    '        <data android:scheme="https" android:host="' + SHARE_HOST + '" android:pathPrefix="' + SHARE_PATH + '"/>\n' +
+    '      </intent-filter>\n    ';
+  const a = m.search(/<activity\b[^>]*android:name="[^"]*MainActivity"/);
+  const end = a >= 0 ? m.indexOf("</activity>", a) : -1;
+  if (end > 0) {
+    m = m.slice(0, end) + filter.replace(/ +$/, "    ").replace(/^\n/, "\n") + m.slice(end);
+    fs.writeFileSync(manifest, m);
+    done("share links can open the app directly (AndroidManifest.xml)");
+  } else {
+    warn("MainActivity not found in AndroidManifest.xml, share links will open in the browser first");
+  }
+}
+
+// 5. Hardware features: portrait-only apps get "android.hardware.screen.portrait" added as REQUIRED, which hides the app
+// from some devices in Play. Declare it optional (the app still opens in portrait).
+m = fs.readFileSync(manifest, "utf8");
+if (/android\.hardware\.screen\.portrait/.test(m)) {
+  m = m.replace(/<uses-feature\b[^>]*android\.hardware\.screen\.portrait[^>]*\/>/, '<uses-feature android:name="android.hardware.screen.portrait" android:required="false"/>');
+  fs.writeFileSync(manifest, m);
+  done("portrait screen feature is optional (AndroidManifest.xml)");
+} else if (/<application\b/.test(m)) {
+  m = m.replace(/(\s*)<application\b/, '$1<uses-feature android:name="android.hardware.screen.portrait" android:required="false"/>$1<application');
+  fs.writeFileSync(manifest, m);
+  done("portrait screen feature is optional (AndroidManifest.xml)");
+}
+
 console.log("CricCorner Android hardening:\n" + notes.join("\n"));

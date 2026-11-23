@@ -2,6 +2,7 @@
 // account's workspace. Pure functions: no storage, no React.
 import { buildScorecard } from "../utils/scorecard";
 import { squadIds } from "../utils/squads";
+import { wheelSummary, ZONES } from "../utils/shots";
 
 export const PHASE_LABEL = { powerplay: "Powerplay", middle: "Middle overs", death: "Death overs" };
 const PHASES = ["powerplay", "middle", "death"];
@@ -35,6 +36,17 @@ export function collectInnings(matches) {
   return out;
 }
 
+// The winning team of a completed match (by the two innings totals), or null for a tie / no result / no second innings.
+function winnerOf(match) {
+  if (!match || match.status !== "completed" || !match.innings1 || !match.innings2) return null;
+  if (/^(no result|abandon|tie)/i.test(match.result || "")) return null;
+  const t1 = buildScorecard(match.innings1).total;
+  const t2 = buildScorecard(match.innings2).total;
+  if (t1 === t2) return null;
+  return t2 > t1 ? match.innings2.battingTeamId : match.innings1.battingTeamId;
+}
+const blankRec = () => ({ played: 0, won: 0, lost: 0, tied: 0 });
+
 const blankPhase = () => ({ balls: 0, runs: 0, outs: 0, dots: 0, fours: 0, sixes: 0, wickets: 0, boundaries: 0 });
 const per = (a, b) => (b ? a / b : 0);
 const isRealOut = (row) => row.out && row.dismissal !== "Retired Hurt";
@@ -49,11 +61,13 @@ export function computePlayerStats({ matches, teams, playerId }) {
   const bat = { balls: 0, runs: 0, dots: 0, ones: 0, twos: 0, threes: 0, fours: 0, sixes: 0, outs: 0 };
   const batPhase = { powerplay: blankPhase(), middle: blankPhase(), death: blankPhase() };
   const startSet = { startBalls: 0, startRuns: 0, laterBalls: 0, laterRuns: 0 };
-  const bowl = { balls: 0, runs: 0, dots: 0, boundaries: 0, wides: 0, noBalls: 0, wickets: 0 };
+  const bowl = { balls: 0, runs: 0, dots: 0, boundaries: 0, fours: 0, sixes: 0, wides: 0, noBalls: 0, wickets: 0 };
   const bowlPhase = { powerplay: blankPhase(), middle: blankPhase(), death: blankPhase() };
   const wicketTypes = {};
-  const field = { catches: 0, runOuts: 0, caughtAndBowled: 0 };
-  const keep = { innings: 0, catches: 0, stumpings: 0, runOuts: 0, byes: 0 };
+  const field = { catches: 0, runOuts: 0, runOutAssists: 0, caughtAndBowled: 0 };
+  const keep = { innings: 0, catches: 0, stumpings: 0, runOuts: 0, runOutAssists: 0, byes: 0 };
+  const wheelDeliveries = [];
+  const handCount = { L: 0, R: 0 };
 
   list.forEach(({ match, no, innings, sc }, order) => {
     const total = innings.totalOvers;
@@ -81,6 +95,10 @@ export function computePlayerStats({ matches, teams, playerId }) {
       });
     }
 
+    if (bRow) {
+      for (const d of sc.deliveries) if (d.batterId === playerId) wheelDeliveries.push(d);
+      handCount[(match.batterHand || {})[playerId] === "L" ? "L" : "R"] += 1;
+    }
     let faced = 0; // legal balls this player has faced so far in this innings
     for (const d of sc.deliveries) {
       const phase = phaseOf(d.overIndex, total);
@@ -112,6 +130,8 @@ export function computePlayerStats({ matches, teams, playerId }) {
           bowl.balls += 1; bowlPhase[phase].balls += 1;
           if (d.chargedRuns === 0) { bowl.dots += 1; bowlPhase[phase].dots += 1; }
           if (d.batRuns >= 4) { bowl.boundaries += 1; bowlPhase[phase].boundaries += 1; }
+          if (d.batRuns === 4) bowl.fours += 1;
+          if (d.batRuns === 6) bowl.sixes += 1;
         }
         if (d.bowlerCredited) {
           bowl.wickets += 1; bowlPhase[phase].wickets += 1;
@@ -119,7 +139,7 @@ export function computePlayerStats({ matches, teams, playerId }) {
         }
       }
 
-      if (d.isWicket && (d.fielderId === playerId || d.fielder2Id === playerId)) {
+      if (d.isWicket && d.fielderId === playerId) {
         if (d.dismissalType === "Stumped") keep.stumpings += 1;
         else if (d.dismissalType === "Caught") {
           if (isKeeper) keep.catches += 1;
@@ -128,10 +148,37 @@ export function computePlayerStats({ matches, teams, playerId }) {
           if (isKeeper) keep.runOuts += 1; else field.runOuts += 1;
         }
       }
+      // the second fielder in a run-out gets an assist
+      if (d.isWicket && d.dismissalType === "Run Out" && d.fielder2Id === playerId) {
+        if (isKeeper) keep.runOutAssists += 1; else field.runOutAssists += 1;
+      }
       if (isKeeper) keep.byes += d.byeRuns;
     }
     if (isKeeper) keep.innings += 1;
   });
+
+  // ---------------- results: team record, batting record, captaincy ----------------
+  const seen = new Set();
+  const record = blankRec();
+  const captain = { matches: 0, won: 0, lost: 0, tied: 0, tossWon: 0 };
+  const battedIn = new Set(batInns.map((i) => i.matchId));
+  let batWon = 0, batLost = 0;
+  for (const { match } of list) {
+    if (seen.has(match.id) || match.status !== "completed") continue;
+    seen.add(match.id);
+    const mine = [match.teamAId, match.teamBId].find((id) => squadIds(match, teams, id).includes(playerId));
+    if (!mine) continue;
+    const win = winnerOf(match);
+    const res = win == null ? "tied" : win === mine ? "won" : "lost";
+    record.played += 1; record[res] += 1;
+    if (battedIn.has(match.id)) { if (res === "won") batWon += 1; if (res === "lost") batLost += 1; }
+    const capId = mine === match.teamAId ? match.captainA : match.captainB;
+    if (capId === playerId) {
+      captain.matches += 1; captain[res] += 1;
+      if (match.tossWinnerTeamId === mine) captain.tossWon += 1;
+    }
+  }
+  const captaincy = { ...captain, winPct: captain.matches ? (captain.won * 100) / captain.matches : null, tossPct: captain.matches ? (captain.tossWon * 100) / captain.matches : null };
 
   // ---------------- headline numbers ----------------
   const outs = batInns.filter((i) => i.out).length;
@@ -152,7 +199,12 @@ export function computePlayerStats({ matches, teams, playerId }) {
     fours: batInns.reduce((x, i) => x + i.fours, 0),
     sixes: batInns.reduce((x, i) => x + i.sixes, 0),
     ducks: batInns.filter((i) => i.out && i.runs === 0).length,
+    matches: new Set(batInns.map((i) => i.matchId)).size,
+    won: 0, lost: 0,
   };
+
+  battingSummary.won = batWon;
+  battingSummary.lost = batLost;
 
   const bBalls = bowlInns.reduce((x, i) => x + i.balls, 0);
   const bRuns = bowlInns.reduce((x, i) => x + i.runs, 0);
@@ -174,9 +226,13 @@ export function computePlayerStats({ matches, teams, playerId }) {
     fiveW: bowlInns.filter((i) => i.wickets >= 5).length,
     wides: bowlInns.reduce((x, i) => x + i.wides, 0),
     noBalls: bowlInns.reduce((x, i) => x + i.noBalls, 0),
+    matches: new Set(bowlInns.map((i) => i.matchId)).size,
+    dots: bowl.dots,
+    fours: bowl.fours,
+    sixes: bowl.sixes,
   };
 
-  const fieldingSummary = { ...field, total: field.catches + field.runOuts };
+  const fieldingSummary = { ...field, stumpings: keep.stumpings, total: field.catches + field.runOuts + field.runOutAssists };
   const keepingSummary = { ...keep, total: keep.catches + keep.stumpings + keep.runOuts };
 
   // ---------------- analytics ----------------
@@ -242,6 +298,26 @@ export function computePlayerStats({ matches, teams, playerId }) {
     inningsCount: bowlInns.length,
   };
 
+  // Wagon wheel: runs by direction, with each area's share, strike rate and a plain strength / weakness read.
+  const hand = handCount.L > handCount.R ? "L" : "R";
+  const ws = wheelSummary(wheelDeliveries, playerId);
+  const areaRows = ZONES.map((z) => {
+    const d = ws.zones[z.key] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+    return { key: z.key, label: z.label, side: z.side, runs: d.runs, balls: d.balls, fours: d.fours, sixes: d.sixes, share: 0 };
+  });
+  const taggedRuns = areaRows.reduce((x, r) => x + r.runs, 0);
+  areaRows.forEach((r) => { r.share = taggedRuns ? (r.runs * 100) / taggedRuns : 0; r.avgPerShot = r.balls ? r.runs / r.balls : 0; });
+  const rank = [...areaRows].sort((x, y) => y.runs - x.runs);
+  const sideRuns = (side) => areaRows.filter((r) => r.side === side).reduce((x, r) => x + r.runs, 0);
+  const wheel = {
+    hand, zones: ws.zones, areas: areaRows, tagged: ws.tagged, scoringBalls: ws.scoringBalls, runs: taggedRuns,
+    offRuns: sideRuns("off"), legRuns: sideRuns("leg"),
+    // needs enough tagged shots before calling anything a strength or weakness
+    reliable: ws.tagged >= 15,
+    strengths: ws.tagged >= 15 ? rank.filter((r) => r.runs > 0 && r.share >= 15).slice(0, 3) : [],
+    weaknesses: ws.tagged >= 15 ? [...areaRows].filter((r) => r.share < 5).sort((x, y) => x.runs - y.runs).slice(0, 3) : [],
+  };
+
   const byOrder = (a, b) => (a.date === b.date ? a.order - b.order : String(a.date).localeCompare(String(b.date)));
   const stats = {
     hasData: matchIds.size > 0,
@@ -250,6 +326,9 @@ export function computePlayerStats({ matches, teams, playerId }) {
     bowling: bowlingSummary,
     fielding: fieldingSummary,
     keeping: keepingSummary,
+    record,
+    captaincy,
+    wheel,
     form: {
       batting: [...batInns].sort(byOrder).slice(-5).reverse(),
       bowling: [...bowlInns].sort(byOrder).slice(-5).reverse(),

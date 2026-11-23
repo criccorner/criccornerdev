@@ -1,16 +1,20 @@
 import React from "react";
 import { Text, View, Pressable, StyleSheet } from "react-native";
 import { useAppState, useAccess } from "../context/AppContext";
+import { useAuth } from "../auth/AuthContext";
+import { useSeen } from "../notifications/seen";
 import { notificationsFor } from "../screens/NotificationsScreen";
 
 // The 🔔 on the Home header: a red number when a match is waiting for your attendance (or your XI).
 export default function NotificationBell({ navigation }) {
   const { matches, teams, players } = useAppState();
   const access = useAccess();
-  const { count } = notificationsFor({ matches, teams, players, access });
+  const { user } = useAuth();
+  const seen = useSeen(user && user.id);
+  const { count } = notificationsFor({ matches, teams, players, access, seen });
   return (
     <Pressable
-      onPress={() => navigation.navigate("Matches", { screen: "Notifications" })}
+      onPress={() => navigation.navigate("Home", { screen: "Notifications" })}
       hitSlop={10}
       style={styles.btn}
       accessibilityRole="button"

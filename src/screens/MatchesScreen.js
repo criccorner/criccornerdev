@@ -8,6 +8,7 @@ import { stageTag } from "../utils/stages";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import SegmentedTabs from "../components/SegmentedTabs";
+import ShareButton from "../share/ShareButton";
 
 const STATUS_COLORS = {
   scheduled: colors.info,
@@ -19,11 +20,14 @@ export default function MatchesScreen({ navigation }) {
   const { teams } = useAppState();
   const { mine, canEdit, mayDelete, mayClone, mayScore } = useAccess();
   const dispatch = useAppDispatch();
-  const [tab, setTab] = useState("upcoming");
   const when = (m) => `${String(m.date || "").slice(0, 10)} ${m.time || "00:00"}`;
-  const upcoming = mine.matches.filter((m) => m.status !== "completed").sort((a, b) => when(a).localeCompare(when(b)));
-  const past = mine.matches.filter((m) => m.status === "completed").sort((a, b) => when(b).localeCompare(when(a)));
-  const sorted = tab === "upcoming" ? upcoming : past;
+  const live = mine.matches.filter((m) => m.status === "live").sort((a, b) => when(a).localeCompare(when(b)));
+  const scheduled = mine.matches.filter((m) => m.status !== "live" && m.status !== "completed").sort((a, b) => when(a).localeCompare(when(b)));
+  const completed = mine.matches.filter((m) => m.status === "completed").sort((a, b) => when(b).localeCompare(when(a)));
+  // Open on Live when something is being scored right now, otherwise on Scheduled.
+  const [tab, setTab] = useState(() => (live.length ? "live" : "scheduled"));
+  const sorted = tab === "live" ? live : tab === "scheduled" ? scheduled : completed;
+  const matchName = (m) => `${(teams.find((t) => t.id === m.teamAId) || {}).name || "Team A"} vs ${(teams.find((t) => t.id === m.teamBId) || {}).name || "Team B"}`;
 
   const openMatch = (m) => {
     // Only the people who may change a match open its scoring / setup screens; everyone else watches the scorecard.
@@ -49,7 +53,7 @@ export default function MatchesScreen({ navigation }) {
         <Button title="+ Schedule Match" onPress={() => navigation.navigate("ScheduleMatch")} />
       </View>
       <SegmentedTabs
-        options={[["upcoming", `Upcoming (${upcoming.length})`], ["past", `Past (${past.length})`]]}
+        options={[["live", `Live (${live.length})`], ["scheduled", `Scheduled (${scheduled.length})`], ["completed", `Completed (${completed.length})`]]}
         value={tab}
         onChange={setTab}
       />
@@ -59,7 +63,7 @@ export default function MatchesScreen({ navigation }) {
         contentContainerStyle={{ padding: spacing.md }}
         ListEmptyComponent={
           <Text style={[typography.muted, { textAlign: "center", marginTop: spacing.xl }]}>
-            {tab === "upcoming" ? "No upcoming matches. Tap Schedule Match to add one." : "No finished matches yet."}
+            {tab === "live" ? "No match is being scored right now." : tab === "scheduled" ? "No scheduled matches. Tap Schedule Match to add one." : "No completed matches yet."}
           </Text>
         }
         renderItem={({ item }) => {
@@ -92,6 +96,7 @@ export default function MatchesScreen({ navigation }) {
                       <Text style={styles.link}>⧉ Clone</Text>
                     </Pressable>
                   ) : null}
+                  <ShareButton kind="match" id={item.id} name={matchName(item)} label="🔗 Share" />
                   {mayDelete("matches", item.id) ? (
                     <Pressable onPress={() => confirmDelete(item, `${teamA?.name} vs ${teamB?.name}`)} hitSlop={8}>
                       <Text style={[styles.link, { color: colors.danger }]}>🗑 Delete</Text>

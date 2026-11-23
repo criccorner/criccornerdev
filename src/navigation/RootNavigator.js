@@ -125,6 +125,16 @@ const liveScoringOptions = ({ navigation, route }) => ({
   ),
 });
 
+// The 🔔 opens Notifications inside the Home tab, so the Matches tab never holds that screen (it used to re-open on every visit).
+function HomeStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
+    </Stack.Navigator>
+  );
+}
+
 function PlayersStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
@@ -153,7 +163,6 @@ function MatchesStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="MatchesList" component={MatchesScreen} options={{ title: "Matches" }} />
-      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
       <Stack.Screen name="ScheduleMatch" component={ScheduleMatchScreen} options={{ title: "Schedule Match" }} />
       <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ title: "Who is playing?" }} />
       <Stack.Screen name="MatchSetup" component={MatchSetupScreen} options={{ title: "Match Setup" }} />
@@ -192,7 +201,7 @@ export default function RootNavigator() {
       screenListeners={guardTabs}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={tabOptions("Home", "🏠")} />
+      <Tab.Screen name="Home" component={HomeStack} options={tabOptions("Home", "🏠")} />
       <Tab.Screen name="Players" component={PlayersStack} options={tabOptions("Players", "🧑")} />
       <Tab.Screen name="Teams" component={TeamsStack} options={tabOptions("Teams", "👥")} />
       <Tab.Screen name="Matches" component={MatchesStack} options={tabOptions("Matches", "🏏")} />

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import AuthLayout from "../../components/AuthLayout";
+import PasswordField from "../../components/PasswordField";
 import FormField from "../../components/FormField";
 import Button from "../../components/Button";
 import SocialButtons from "../../components/SocialButtons";
@@ -54,8 +55,8 @@ export default function RegisterScreen({ navigation }) {
         ))}
       </View>
 
-      <FormField label="Password" value={password} onChangeText={setPassword} placeholder="Min 8 characters, letters + a number" secureTextEntry autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
-      <FormField label="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
+      <PasswordField label="Password" value={password} onChangeText={setPassword} placeholder="Min 8 characters, letters + a number" autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
+      <PasswordField label="Confirm Password" value={confirm} onChangeText={setConfirm} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {exists ? (

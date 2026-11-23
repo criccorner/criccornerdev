@@ -5,10 +5,12 @@ import { useAppState, useAppDispatch, useAccess } from "../context/AppContext";
 import { STATUSES } from "../utils/availability";
 import { pendingAttendance, confirmedFor, isLocked } from "../utils/attendance";
 import Card from "../components/Card";
+import { useAuth } from "../auth/AuthContext";
+import { notifKey, markSeen, useSeen } from "../notifications/seen";
 import { colors, spacing, typography, radius } from "../utils/theme";
 
 // What needs you: matches waiting for your attendance, your squad to confirm, and matches you were picked for.
-export function notificationsFor({ matches, teams, players, access, now }) {
+export function notificationsFor({ matches, teams, players, access, now, seen }) {
   const ids = [...(access.myPlayerIds || [])];
   const pending = pendingAttendance({ matches, teams, myPlayerIds: ids, players, now });
   const picked = confirmedFor({ matches, myPlayerIds: ids, now });
@@ -19,24 +21,32 @@ export function notificationsFor({ matches, teams, players, access, now }) {
     const sides = access.correctionSides(m).filter((s) => !isLocked(m, s));
     if (sides.length) toConfirm.push({ match: m, sides });
   }
-  return { pending, picked, toConfirm, count: pending.length + toConfirm.length };
+  const isNew = (kind, matchId, playerId) => !(seen && seen.has(notifKey(kind, matchId, playerId)));
+  // The number on the bell: only the ones you haven't opened yet.
+  const count = pending.filter((x) => isNew("ask", x.match.id, x.playerId)).length + toConfirm.filter((x) => isNew("xi", x.match.id)).length;
+  return { pending, picked, toConfirm, count };
 }
 
 export default function NotificationsScreen({ navigation }) {
-  // Opened through navigate("Matches", { screen: "Notifications" }): forget that jump so the Matches tab opens normally next time.
-  useEffect(() => {
-    const tab = navigation.getParent && navigation.getParent();
-    if (tab && tab.setParams) tab.setParams({ screen: undefined, params: undefined, initial: undefined });
-  }, [navigation]);
   const { matches, teams, players } = useAppState();
   const dispatch = useAppDispatch();
   const access = useAccess();
-  const n = notificationsFor({ matches, teams, players, access });
+  const { user } = useAuth();
+  const seen = useSeen(user && user.id);
+  const n = notificationsFor({ matches, teams, players, access, seen });
+  const fresh = (kind, m, pid) => !seen.has(notifKey(kind, m.id, pid));
   const nameOf = (id) => (teams.find((t) => t.id === id) || {}).name || "Team";
   const title = (m) => `${nameOf(m.teamAId)} vs ${nameOf(m.teamBId)}`;
   const when = (m) => `${matchWhen(m)}${m.venue ? ` · ${m.venue}` : ""}`;
-  const open = (m) => navigation.navigate("Attendance", { matchId: m.id });
-  const answer = (playerId, matchId, status) => dispatch({ type: "SET_AVAILABILITY", payload: { playerId, matchId, status } });
+  // Opening a notification's details marks it read, so the bell number drops by one.
+  const open = (m, kind, pid) => {
+    markSeen(user && user.id, notifKey(kind, m.id, pid));
+    navigation.navigate("Matches", { screen: "Attendance", params: { matchId: m.id } });
+  };
+  const answer = (playerId, matchId, status) => {
+    markSeen(user && user.id, notifKey("ask", matchId, playerId));
+    dispatch({ type: "SET_AVAILABILITY", payload: { playerId, matchId, status } });
+  };
   const empty = !n.pending.length && !n.picked.length && !n.toConfirm.length;
 
   return (
@@ -51,8 +61,8 @@ export default function NotificationsScreen({ navigation }) {
       {n.pending.length ? <Text style={typography.label}>ARE YOU AVAILABLE?</Text> : null}
       {n.pending.map(({ match, playerId, side }) => (
         <Card key={`${match.id}-${playerId}`}>
-          <Pressable onPress={() => open(match)}>
-            <Text style={styles.title}>{title(match)}</Text>
+          <Pressable onPress={() => open(match, "ask", playerId)}>
+            <Text style={styles.title}>{fresh("ask", match, playerId) ? "🔵 " : ""}{title(match)}</Text>
             <Text style={typography.muted}>{when(match)}</Text>
           </Pressable>
           <View style={styles.chips}>
@@ -67,9 +77,9 @@ export default function NotificationsScreen({ navigation }) {
 
       {n.toConfirm.length ? <Text style={[typography.label, { marginTop: spacing.md }]}>PICK YOUR XI</Text> : null}
       {n.toConfirm.map(({ match }) => (
-        <Pressable key={match.id} onPress={() => open(match)}>
+        <Pressable key={match.id} onPress={() => open(match, "xi")}>
           <Card>
-            <Text style={styles.title}>{title(match)}</Text>
+            <Text style={styles.title}>{fresh("xi", match) ? "🔵 " : ""}{title(match)}</Text>
             <Text style={typography.muted}>{when(match)}</Text>
             <Text style={styles.action}>See who's available and confirm the XI ›</Text>
           </Card>
@@ -78,7 +88,7 @@ export default function NotificationsScreen({ navigation }) {
 
       {n.picked.length ? <Text style={[typography.label, { marginTop: spacing.md }]}>YOU'RE IN THE XI</Text> : null}
       {n.picked.map(({ match, playerId }) => (
-        <Pressable key={`${match.id}-${playerId}`} onPress={() => open(match)}>
+        <Pressable key={`${match.id}-${playerId}`} onPress={() => open(match, "in", playerId)}>
           <Card>
             <Text style={styles.title}>✅ {title(match)}</Text>
             <Text style={typography.muted}>{when(match)}</Text>

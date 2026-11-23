@@ -3,6 +3,7 @@ import { Text, ScrollView, Alert, StyleSheet } from "react-native";
 import { useAuth } from "../../auth/AuthContext";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
+import PasswordField from "../../components/PasswordField";
 import FormField from "../../components/FormField";
 import { colors, spacing, typography } from "../../utils/theme";
 
@@ -34,9 +35,9 @@ export default function ChangePasswordScreen({ navigation }) {
       <Card>
         <Text style={typography.h2}>Change password</Text>
         <Text style={[typography.muted, { marginVertical: spacing.sm }]}>Choose a password with at least 8 characters, including letters and a number.</Text>
-        <FormField label="Current Password" value={current} onChangeText={setCurrent} secureTextEntry autoCapitalize="none" autoComplete="off" />
-        <FormField label="New Password" value={next} onChangeText={setNext} secureTextEntry autoCapitalize="none" autoComplete="off" placeholder="Min 8 characters, letters + a number" />
-        <FormField label="Confirm New Password" value={confirm} onChangeText={setConfirm} secureTextEntry autoCapitalize="none" autoComplete="off" />
+        <PasswordField label="Current Password" value={current} onChangeText={setCurrent} autoCapitalize="none" autoComplete="off" />
+        <PasswordField label="New Password" value={next} onChangeText={setNext} autoCapitalize="none" autoComplete="off" placeholder="Min 8 characters, letters + a number" />
+        <PasswordField label="Confirm New Password" value={confirm} onChangeText={setConfirm} autoCapitalize="none" autoComplete="off" />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button title="Change Password" onPress={submit} loading={busy} />
       </Card>

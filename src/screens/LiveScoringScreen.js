@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import TransferScoring from "../components/TransferScoring";
 import { withScorerGate } from "../components/ScorerGate";
 import { squadIds, keeperOf } from "../utils/squads";
@@ -98,6 +98,14 @@ function LiveScoringScreen({ route, navigation }) {
   const innings = match?.[inningsKey];
   const summary = useMemo(() => (innings ? computeInningsSummary(innings) : null), [innings]);
 
+  // Fast taps: several taps can arrive before the screen has redrawn, and each would start from the same OLD innings
+  // (the later tap overwrites the earlier one, or scores a ball into an over that has already ended). So every change
+  // starts from the newest innings we have produced, and a quick second tap on the same button is ignored.
+  const latestRef = useRef({ inn: null, at: 0 });
+  const lastTapRef = useRef(0);
+  if (latestRef.current.inn && innings === latestRef.current.inn) latestRef.current = { inn: null, at: 0 }; // the screen has caught up
+  const baseInnings = () => (latestRef.current.inn && Date.now() - latestRef.current.at < 1500 ? latestRef.current.inn : innings);
+
   if (!match || !innings || !summary) return null;
 
   const battingTeam = teams.find((t) => t.id === innings.battingTeamId);
@@ -140,7 +148,8 @@ function LiveScoringScreen({ route, navigation }) {
   const lastStrikeChange = lastEntry && lastEntry.type === "swap" ? lastEntry : null;
 
   const updateInnings = (updater) => {
-    const updated = updater(innings);
+    const updated = updater(baseInnings());
+    latestRef.current = { inn: updated, at: Date.now() };
     dispatch({ type: "UPDATE_MATCH", payload: { matchId, changes: { [inningsKey]: updated } } });
     return updated;
   };
@@ -182,13 +191,26 @@ function LiveScoringScreen({ route, navigation }) {
   const setHand = (h) =>
     dispatch({ type: "UPDATE_MATCH", payload: { matchId, changes: { batterHand: { ...(match.batterHand || {}), [summary.striker]: h } } } });
 
+  // May a ball be scored right now? Not while the new bowler is still to be chosen, not after the innings has ended,
+  // and not for a second tap that follows the first within a fraction of a second.
+  const canScore = () => {
+    const base = baseInnings();
+    if (needsNewBowler(base) || computeInningsSummary(base).isInningsOver) return false;
+    const now = Date.now();
+    if (now - lastTapRef.current < 350) return false;
+    lastTapRef.current = now;
+    return true;
+  };
+
   const record = (input) => {
+    if (!canScore()) return;
     setUndoNote(null);
     afterBall(updateInnings((inn) => recordBall(inn, input)));
   };
 
   // Runs off the bat: with the wheel on, ask where the ball went first.
   const score = (runs) => {
+    if (needsNewBowler(baseInnings())) return; // an over has just ended: choose the bowler first
     if (wantsShot(runs)) {
       setShotSel({ shot: null, zone: null });
       setShotSheet({ runs });
@@ -236,9 +258,8 @@ function LiveScoringScreen({ route, navigation }) {
     const type = extraPicker;
     if (!type) return;
     setExtraPicker(null);
-    setUndoNote(null);
     const input = type === "noball" ? { runs: n, extraType: "noball", noBallRunType: nbRunType } : { runs: n, extraType: type };
-    afterBall(updateInnings((inn) => recordBall(inn, input)));
+    record(input);
   };
 
   const openWicketModal = () => {
@@ -270,6 +291,7 @@ function LiveScoringScreen({ route, navigation }) {
       Alert.alert("Select the incoming batsman");
       return;
     }
+    if (!canScore()) { setWicketModal(false); return; }
     setUndoNote(null);
     const runOut = dismissalType === "Run Out";
     const updated = updateInnings((inn) =>
@@ -303,8 +325,14 @@ function LiveScoringScreen({ route, navigation }) {
       Alert.alert("Select a bowler");
       return;
     }
+    // The bowler of the last over can't bowl the next one (unless he is the only bowler).
+    if (mustPickBowler && bowlerOpts[pendingBowlerId] && bowlerOpts[pendingBowlerId].blocked) {
+      Alert.alert("Choose another bowler", "The bowler of the last over can't bowl the next one.");
+      return;
+    }
     // Choosing the bowler already bowling (when changing) does nothing.
     if (mustPickBowler || pendingBowlerId !== summary.currentBowlerId) {
+      if (mustPickBowler && !needsNewBowler(baseInnings())) { closeChangeBowler(); return; } // already chosen (double tap)
       setUndoNote(null);
       updateInnings((inn) => setBowler(inn, pendingBowlerId));
     }

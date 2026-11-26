@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import ShareButton from "../../share/ShareButton";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
-import { useAppState, useAllState, useAccess } from "../../context/AppContext";
+import { useAllState, useAccess } from "../../context/AppContext";
 import { useAuth } from "../../auth/AuthContext";
 import { organizedBy, teamsOf, playerTitles } from "../../utils/playerInfo";
 import { computePlayerStats } from "../../stats/playerStats";
@@ -15,13 +15,16 @@ import { colors, spacing, typography, radius } from "../../utils/theme";
 export default function PlayerStatsScreen({ route, navigation }) {
   const { playerId } = route.params;
   const { canEdit } = useAccess();
-  const { matches, teams } = useAppState();
   const all = useAllState();
+  // Always count from EVERY match, never from the viewer's own filtered list, so a player's numbers are the same for everyone.
+  const matches = all.matches;
+  const teams = all.teams;
   const everyone = all.players;
   const { user } = useAuth();
   const { myPlayerIds } = useAccess();
   const [tab, setTab] = useState("stats");
   const player = everyone.find((p) => p.id === playerId);
+  const isMe = !!player && ((myPlayerIds && myPlayerIds.has && myPlayerIds.has(player.id)) || false);
   const stats = useMemo(() => (player ? computePlayerStats({ matches, teams, playerId }) : null), [matches, teams, playerId, player]);
 
   const info = useMemo(() => {
@@ -66,7 +69,19 @@ export default function PlayerStatsScreen({ route, navigation }) {
         </View>
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.md }}>
-        <ShareButton kind="player" id={player.id} name={player.name} label="🔗 Share this player" style={{ alignSelf: "flex-start", marginBottom: spacing.sm }} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.lg, marginBottom: spacing.sm }}>
+          <ShareButton kind="player" id={player.id} name={player.name} label="🔗 Share this player" />
+          {!isMe ? (
+            <Pressable
+              onPress={() => navigation.navigate("Profile", { screen: "Chat", params: { kind: "players", id: player.id, name: player.name } })}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Chat with ${player.name}`}
+            >
+              <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 13 }}>💬 Chat</Text>
+            </Pressable>
+          ) : null}
+        </View>
         <Card>
           <Text style={typography.label}>TEAMS</Text>
           {info.teams.length ? (

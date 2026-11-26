@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useAuth } from "../../auth/AuthContext";
-import { useAppState } from "../../context/AppContext";
+import { useAppState, useAllState } from "../../context/AppContext";
 import { computePlayerStats } from "../../stats/playerStats";
 import { findMyPlayer } from "../../auth/identity";
 import { playerUsage } from "../../players/playerOps";
@@ -14,7 +14,10 @@ import { colors, spacing, typography, radius } from "../../utils/theme";
 
 export default function MyStatsScreen({ navigation }) {
   const { user } = useAuth();
-  const { matches, teams, players } = useAppState();
+  const { players } = useAppState();
+  const everything = useAllState();
+  const matches = everything.matches; // every match, same as the public profile page
+  const teams = everything.teams;
   const [tab, setTab] = useState("stats");
 
   // "Me" = the player in this workspace that matches the logged-in account.

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, ScrollView, Pressable, Keyboard, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, ScrollView, Pressable, Keyboard, Alert, Dimensions, Platform, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth/AuthContext";
 import { colors, spacing, typography, radius } from "../../utils/theme";
@@ -15,20 +15,33 @@ export default function ChatScreen({ route, navigation }) {
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState(p.otherId ? "ready" : "finding"); // finding | ready | none
   const scroll = useRef(null);
-  // Lift the message box above the keyboard (the phone no longer resizes the screen for us): measure where this screen
-  // ends and where the keyboard starts, and pad the difference.
+  // Keep the message box above the keyboard. Depending on the Android version the screen is either shrunk for us or not,
+  // and the shrinking can finish a moment AFTER the keyboard events. So we never guess: whenever the keyboard opens/closes
+  // OR this screen changes size, we measure the gap between the screen's bottom edge and the bottom of the window.
+  // Padding added = keyboard height minus that gap (so zero if the screen has already shrunk above the keyboard).
   const box = useRef(null);
+  const kbRef = useRef(0);
   const [lift, setLift] = useState(0);
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", (e) => {
-      const top = e && e.endCoordinates ? e.endCoordinates.screenY : null;
-      if (top == null || !box.current) return;
-      box.current.measureInWindow((x, y, w, h) => setLift(Math.max(0, Math.round(y + h - top))));
-      setTimeout(() => scroll.current && scroll.current.scrollToEnd({ animated: true }), 120);
+  const recompute = useCallback(() => {
+    if (!kbRef.current) { setLift(0); return; }
+    if (!box.current || !box.current.measureInWindow) return;
+    box.current.measureInWindow((x, y, w, h) => {
+      if (!kbRef.current) { setLift(0); return; }
+      const gap = Math.max(0, Dimensions.get("window").height - (y + h));
+      setLift(Math.max(0, Math.min(kbRef.current, Math.round(kbRef.current - gap))));
     });
-    const hide = Keyboard.addListener("keyboardDidHide", () => setLift(0));
-    return () => { show.remove(); hide.remove(); };
   }, []);
+  useEffect(() => {
+    const timers = [];
+    const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow", (e) => {
+      kbRef.current = e && e.endCoordinates ? e.endCoordinates.height : 0;
+      recompute(); later(recompute, 150); later(recompute, 400); // again once Android has finished resizing
+      later(() => scroll.current && scroll.current.scrollToEnd({ animated: true }), 250);
+    });
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => { kbRef.current = 0; setLift(0); });
+    return () => { timers.forEach(clearTimeout); show.remove(); hide.remove(); };
+  }, [recompute]);
 
   useEffect(() => {
     navigation.setOptions({ title: p.name ? `💬 ${p.name}` : "Chat" });
@@ -80,7 +93,7 @@ export default function ChatScreen({ route, navigation }) {
     );
   }
   return (
-    <View ref={box} collapsable={false} style={{ flex: 1, backgroundColor: colors.background, paddingBottom: lift }}>
+    <View ref={box} collapsable={false} onLayout={recompute} style={{ flex: 1, backgroundColor: colors.background, paddingBottom: lift }}>
       <ScrollView ref={scroll} contentContainerStyle={{ padding: spacing.md }} onContentSizeChange={() => scroll.current && scroll.current.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled">
         {msgs.length === 0 ? <Text style={[typography.muted, { textAlign: "center" }]}>Say hello 👋 - messages here are private between the two of you.</Text> : null}
         {msgs.map((m) => {

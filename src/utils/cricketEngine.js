@@ -205,6 +205,9 @@ export function computeInningsSummary(innings) {
 
 export function recordBall(innings, ballInput) {
   const summary = computeInningsSummary(innings);
+  // Safety net: no ball is added once the innings is over, or while the next over's bowler is still to be chosen
+  // (a stray extra tap must never score into the wrong over or credit the wrong bowler).
+  if (summary.isInningsOver || needsNewBowler(innings)) return innings;
   const ball = {
     over: summary.currentOverIndex,
     ballInOver: summary.ballsInCurrentOver,
